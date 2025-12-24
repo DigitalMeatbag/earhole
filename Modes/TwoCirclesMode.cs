@@ -95,20 +95,20 @@ public class TwoCirclesMode : IVisualizerMode
             if (i < leftSpectrum.Length)
             {
                 DrawSegment(canvas, leftCenterX, centerY, i, leftSpectrum.Length,
-                           ref currentRadiiLeft, ref previousRadiiLeft, ref smoothedVelocitiesLeft);
+                           ref currentRadiiLeft, ref previousRadiiLeft, ref smoothedVelocitiesLeft, true);
             }
             
             // Draw right circle segment
             if (i < rightSpectrum.Length)
             {
                 DrawSegment(canvas, rightCenterX, centerY, i, rightSpectrum.Length,
-                           ref currentRadiiRight, ref previousRadiiRight, ref smoothedVelocitiesRight);
+                           ref currentRadiiRight, ref previousRadiiRight, ref smoothedVelocitiesRight, false);
             }
         }
     }
 
     private void DrawSegment(SKCanvas canvas, float centerX, float centerY, int i, int spectrumLength,
-                            ref float[] currentRadii, ref float[] previousRadii, ref float[] smoothedVelocities)
+                            ref float[] currentRadii, ref float[] previousRadii, ref float[] smoothedVelocities, bool isLeftCircle)
     {
         // Calculate instantaneous velocity (rate of change)
         float instantVelocity = currentRadii[i] - previousRadii[i];
@@ -119,17 +119,37 @@ public class TwoCirclesMode : IVisualizerMode
         // Amplify and normalize velocity to color range
         float normalizedVelocity = Math.Clamp(smoothedVelocities[i] * 2f, -1f, 1f);
         
-        // Calculate color based on smoothed velocity
+        // Calculate color based on smoothed velocity with different color schemes per circle
         SKColor color;
         if (normalizedVelocity > 0.05f)
         {
+            // Moving outward
             byte component = (byte)(255 * (1f - normalizedVelocity));
-            color = new SKColor(255, component, component);
+            if (isLeftCircle)
+            {
+                // Left circle: interpolate from white to red
+                color = new SKColor(255, component, component);
+            }
+            else
+            {
+                // Right circle: interpolate from white to green
+                color = new SKColor(component, 255, component);
+            }
         }
         else if (normalizedVelocity < -0.05f)
         {
+            // Moving inward
             byte component = (byte)(255 * (1f + normalizedVelocity));
-            color = new SKColor(component, component, 255);
+            if (isLeftCircle)
+            {
+                // Left circle: interpolate from white to blue
+                color = new SKColor(component, component, 255);
+            }
+            else
+            {
+                // Right circle: interpolate from white to orange
+                color = new SKColor(255, (byte)(component * 0.65f), component);
+            }
         }
         else
         {
