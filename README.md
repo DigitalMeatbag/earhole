@@ -73,20 +73,21 @@ earhole automatically detects and displays track information from media players 
 
 ## Visualization Modes
 
-- **Spectrum Bars** (default): 256-bin spectrum analyzer with ROYGBIV coloring; bars scale with volume and frequency content.
+- **🔀 Shuffle** (default): Automatically cycles through all visualizer modes every 30 seconds with true randomization; never shows the same mode twice in a row. Perfect for variety during long listening sessions.
+- **📊 Spectrum Bars**: 256-bin spectrum analyzer with ROYGBIV coloring; bars scale with volume and frequency content.
 	- ![Spectrum Bars](assets/earhole-spectrum-bars.png)
-- **Particles**: Audio-reactive particle field launched from the bottom; color and velocity respond to frequency/intensity.
+- **✨ Particles**: Audio-reactive particle field launched from the bottom; color and velocity respond to frequency/intensity.
 	- ![Particles](assets/earhole-particles.png)
-- **The Circle**: Circular spectrum visualizer where frequencies ripple outward from center; segments are colored red (expanding), white (stable), or blue (contracting) based on velocity.
+- **⭕ The Circle**: Circular spectrum visualizer where frequencies ripple outward from center; segments are colored red (expanding), white (stable), or blue (contracting) based on velocity.
 	- ![The Circle](assets/earhole-the-circle.png)
-- **Two Circles**: Dual circular visualizers displaying true stereo separation; left channel (left circle) uses red/blue coloring, right channel (right circle) uses green/orange; overlapping segments blend additively to reveal stereo imaging and phase relationships.
+- **⚫ Two Circles**: Dual circular visualizers displaying true stereo separation; left channel (left circle) uses red/blue coloring, right channel (right circle) uses green/orange; overlapping segments blend additively to reveal stereo imaging and phase relationships.
 	- ![Two Circles](assets/earhole-two-circles.png)
-- **Fairies**: Seven ROYGBIV fairies fly organically across the screen, each tracking a dynamic frequency range; glow intensity reflects audio activity, speed and movement erraticism increase with rising intensity.
+- **🧚 Fairies**: Seven ROYGBIV fairies fly organically across the screen, each tracking a dynamic frequency range; glow intensity reflects audio activity, speed and movement erraticism increase with rising intensity.
 	- ![Fairies](assets/earhole-fairies.png)
-- **The Wave**: Dual-channel waveform visualizer with stereo separation; right channel (red) displays upward, left channel (blue) displays downward. Beat detection triggers color change to white and spawns colorful glowing particles at random positions.
+- **🌊 The Wave**: Dual-channel waveform visualizer with stereo separation; right channel (red) displays upward, left channel (blue) displays downward. Beat detection triggers color change to white and spawns colorful glowing particles at random positions.
 	- ![The Wave](assets/earhole-the-wave.png)
 
-All modes update in real time; use the mode menu (`) to switch on the fly.
+All modes update in real time; use the mode menu (`) to switch on the fly. When you select shuffle mode, it resumes cycling; when you select a specific mode, it stays on that mode until you change it.
 
 ## Building from Source
 
