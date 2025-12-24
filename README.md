@@ -62,6 +62,8 @@ The repository includes pre-built releases that require no additional installati
 	- ![Particles](assets/earhole-particles.png)
 - **The Circle**: Circular spectrum visualizer where frequencies ripple outward from center; segments are colored red (expanding), white (stable), or blue (contracting) based on velocity.
 	- ![The Circle](assets/earhole-the-circle.png)
+- **Fairies**: Seven ROYGBIV fairies fly organically across the screen, each tracking a dynamic frequency range; glow intensity reflects audio activity, speed and movement erraticism increase with rising intensity.
+	- ![Fairies](assets/earhole-fairies.png)
 
 All modes update in real time; use the mode menu (`) to switch on the fly.
 
