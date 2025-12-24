@@ -7,7 +7,7 @@
         xmlns:skia="clr-namespace:SkiaSharp.Views.WPF;assembly=SkiaSharp.Views.WPF"
         mc:Ignorable="d"
         KeyDown="Window_KeyDown"
-        Title="Audio Visualizer" Height="600" Width="800">
+        Title="earhole" Height="600" Width="800">
     <Grid>
         <skia:SKElement x:Name="SkiaView" />
         <TextBlock x:Name="StatusText" 
