@@ -50,9 +50,14 @@ public partial class MainWindow : Window
     // Beat detection
     private bool isBeat = false;
     private float averageEnergy = 0f;
-    private const float BEAT_THRESHOLD = 1.4f;
-    private const float ENERGY_DECAY = 0.95f;
-    private const int BEAT_BINS = 15; // Number of low-frequency bins to monitor
+    private float energyVariance = 0f;
+    private float lastEnergy = 0f;
+    private int beatCooldown = 0;
+    private const float BEAT_THRESHOLD = 1.5f; // Increased for better precision
+    private const float ENERGY_DECAY = 0.97f; // Slower decay for more stable average
+    private const float VARIANCE_DECAY = 0.96f;
+    private const int BEAT_BINS = 20; // Increased to capture more bass frequencies
+    private const int BEAT_COOLDOWN_FRAMES = 8; // Minimum frames between beats (~133ms at 60fps)
 
     public MainWindow()
     {
@@ -314,26 +319,54 @@ public partial class MainWindow : Window
                 this.rightSpectrum[i] = (float)rightComplex[i].Magnitude;
             }
 
-            // Beat detection: monitor low-frequency energy
+            // Beat detection: monitor low-frequency energy with frequency weighting
             float currentEnergy = 0f;
             int binsToCheck = Math.Min(BEAT_BINS, Math.Min(this.leftSpectrum.Length, this.rightSpectrum.Length));
+            
+            // Apply frequency weighting (emphasize lower bass frequencies)
             for (int i = 0; i < binsToCheck; i++)
             {
-                currentEnergy += (this.leftSpectrum[i] + this.rightSpectrum[i]) / 2f;
+                // Weight decreases linearly: first bin = 1.0, last bin = 0.5
+                float weight = 1.0f - (i / (float)binsToCheck) * 0.5f;
+                currentEnergy += ((this.leftSpectrum[i] + this.rightSpectrum[i]) / 2f) * weight;
             }
 
-            // Detect beat if current energy exceeds threshold
-            if (currentEnergy > averageEnergy * BEAT_THRESHOLD)
+            // Normalize by total weight
+            currentEnergy /= (binsToCheck * 0.75f);
+
+            // Calculate instantaneous energy change (onset detection)
+            float energyDelta = currentEnergy - lastEnergy;
+            lastEnergy = currentEnergy;
+
+            // Update variance for adaptive thresholding
+            float diff = currentEnergy - averageEnergy;
+            energyVariance = energyVariance * VARIANCE_DECAY + (diff * diff) * (1 - VARIANCE_DECAY);
+            float stdDev = (float)Math.Sqrt(Math.Max(0, energyVariance));
+
+            // Update running average with decay
+            averageEnergy = averageEnergy * ENERGY_DECAY + currentEnergy * (1 - ENERGY_DECAY);
+
+            // Decrement cooldown
+            if (beatCooldown > 0) beatCooldown--;
+
+            // Detect beat using multiple criteria:
+            // 1. Current energy exceeds threshold above average
+            // 2. Positive onset (energy increasing)
+            // 3. Energy exceeds average + standard deviation (adaptive threshold)
+            // 4. Not in cooldown period
+            float dynamicThreshold = averageEnergy + stdDev * 0.5f;
+            if (beatCooldown == 0 && 
+                currentEnergy > averageEnergy * BEAT_THRESHOLD &&
+                energyDelta > 0 &&
+                currentEnergy > dynamicThreshold)
             {
                 this.isBeat = true;
+                beatCooldown = BEAT_COOLDOWN_FRAMES;
             }
             else
             {
                 this.isBeat = false;
             }
-
-            // Update running average with decay
-            averageEnergy = averageEnergy * ENERGY_DECAY + currentEnergy * (1 - ENERGY_DECAY);
         }
 
         // Invalidate the view to trigger repaint
