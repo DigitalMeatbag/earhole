@@ -4,13 +4,23 @@
 
 Write-Host "Starting earhole release build process..." -ForegroundColor Green
 
-# Step 0: Clean up old ZIP files in publish directory
+# Step 0: Verify we're on the main branch
+Write-Host "Checking git branch..." -ForegroundColor Yellow
+$currentBranch = git rev-parse --abbrev-ref HEAD
+if ($currentBranch -ne "main") {
+    Write-Host "ERROR: Releases can only be built from the 'main' branch!" -ForegroundColor Red
+    Write-Host "Current branch: $currentBranch" -ForegroundColor Red
+    exit 1
+}
+Write-Host "On main branch - proceeding with build" -ForegroundColor Green
+
+# Step 1: Clean up old ZIP files in publish directory
 Write-Host "Cleaning up old ZIP files..." -ForegroundColor Yellow
 if (Test-Path publish) {
     Get-ChildItem publish\*.zip | Remove-Item -Force
 }
 
-# Step 1: Build in Release mode
+# Step 2: Build in Release mode
 Write-Host "Building in Release mode..." -ForegroundColor Yellow
 dotnet build -c Release
 if ($LASTEXITCODE -ne 0) {
@@ -18,7 +28,7 @@ if ($LASTEXITCODE -ne 0) {
     exit 1
 }
 
-# Step 2: Publish as self-contained executable with single file
+# Step 3: Publish as self-contained executable with single file
 Write-Host "Publishing self-contained executable..." -ForegroundColor Yellow
 dotnet publish earhole.csproj -c Release -r win-x64 --self-contained `
     -p:PublishSingleFile=true `
@@ -29,7 +39,7 @@ if ($LASTEXITCODE -ne 0) {
     exit 1
 }
 
-# Step 3: Create ZIP archive (only include necessary files)
+# Step 4: Create ZIP archive (only include necessary files)
 $zipName = "earhole-v$(Get-Date -Format 'yyyy-MM-dd').zip"
 Write-Host "Creating ZIP archive: $zipName" -ForegroundColor Yellow
 
