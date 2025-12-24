@@ -57,8 +57,8 @@ public class ParticleMode : IVisualizerMode
             particle.Position.X += particle.Velocity.X;
             particle.Position.Y += particle.Velocity.Y;
             
-            // Apply gravity
-            particle.Velocity.Y += 0.2f;
+            // Apply gravity (reduced for slower fall)
+            particle.Velocity.Y += 0.1f;
 
             // Render particle
             var paint = new SKPaint
@@ -96,14 +96,14 @@ public class ParticleMode : IVisualizerMode
         
         // Calculate initial velocity based on intensity
         // Higher intensity = higher upward velocity
-        float baseVelocity = intensity * 15f; // Scale factor for velocity
-        float velocityY = -(baseVelocity + (float)random.NextDouble() * 5f + 5f);
+        float baseVelocity = intensity * 7.5f; // Scaled down for slower lift
+        float velocityY = -(baseVelocity + (float)random.NextDouble() * 2.5f + 2.5f);
         
         var particle = new Particle
         {
             Position = new SKPoint(spreadX, height),
             Velocity = new SKPoint(
-                (float)(random.NextDouble() - 0.5) * 5,
+                (float)(random.NextDouble() - 0.5) * 2.5f,
                 velocityY
             ),
             Color = color,
