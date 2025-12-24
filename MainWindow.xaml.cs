@@ -358,9 +358,28 @@ public partial class MainWindow : Window
             }
             else
             {
-                // Start fade out if no track or let the timer handle it
-                if (string.IsNullOrEmpty(TrackInfoText.Text) || TrackInfoText.Text == "🎵 Unknown Track")
+                // Switching to temporary mode - start fade out after 3 seconds if we have track info
+                if (!string.IsNullOrEmpty(TrackInfoText.Text) && TrackInfoText.Text != "🎵 Unknown Track")
                 {
+                    // Start the temporary mode timer
+                    trackInfoFadeTimer?.Stop();
+                    trackInfoFadeTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(3) };
+                    trackInfoFadeTimer.Tick += (s, args) =>
+                    {
+                        var fadeOut = new DoubleAnimation
+                        {
+                            From = 0.8,
+                            To = 0.0,
+                            Duration = TimeSpan.FromSeconds(0.5)
+                        };
+                        TrackInfoText.BeginAnimation(TextBlock.OpacityProperty, fadeOut);
+                        trackInfoFadeTimer?.Stop();
+                    };
+                    trackInfoFadeTimer.Start();
+                }
+                else
+                {
+                    // No valid track info, fade out immediately
                     var fadeOut = new DoubleAnimation
                     {
                         From = TrackInfoText.Opacity,
