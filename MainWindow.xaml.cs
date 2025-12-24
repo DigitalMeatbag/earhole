@@ -16,6 +16,7 @@ using SkiaSharp;
 using System.Timers;
 using System.Windows.Media.Animation;
 using System.Windows.Threading;
+using earhole.Modes;
 
 namespace earhole;
 
@@ -38,33 +39,17 @@ public partial class MainWindow : Window
     private System.Timers.Timer timer;
     private volatile bool running = true;
     private bool isFullscreen = false;
-    private static readonly SKColor Indigo = SKColor.Parse("#4B0082");
-    private static readonly SKColor Violet = SKColor.Parse("#8A2BE2");
     private bool audioDetected = false;
     private Storyboard fadeStoryboard;
     private bool isClosing = false;
-
-    private static SKColor GetColorForHeight(float barHeight, float maxCanvasHeight)
-    {
-        float maxHeight = maxCanvasHeight;
-        float clamped = Math.Min(barHeight, maxHeight);
-        int bin = (int)(clamped / (maxHeight / 7));
-        switch (bin)
-        {
-            case 0: return SKColors.Red;
-            case 1: return SKColors.Orange;
-            case 2: return SKColors.Yellow;
-            case 3: return SKColors.Green;
-            case 4: return SKColors.Blue;
-            case 5: return Indigo;
-            case 6: return Violet;
-            default: return Violet;
-        }
-    }
+    private IVisualizerMode currentMode;
 
     public MainWindow()
     {
         InitializeComponent();
+
+        // Initialize the default visualizer mode
+        currentMode = new SpectrumBarsMode();
 
         // Setup fade storyboard
         fadeStoryboard = new Storyboard();
@@ -261,18 +246,11 @@ public partial class MainWindow : Window
         var canvas = e.Surface.Canvas;
         int width = e.Info.Width;
         int height = e.Info.Height;
-        canvas.Clear(SKColors.Black);
 
-        // Spectrum bars
+        // Use the current mode to render the visualization
         lock (this.spectrumLock)
         {
-            for (int i = 0; i < this.spectrum.Length; i++)
-            {
-                float barHeight = (float)Math.Log(1 + this.spectrum[i]) * (height / 6f);
-                float x = (float)i / this.spectrum.Length * width;
-                var paint = new SKPaint { Color = GetColorForHeight(barHeight, height) };
-                canvas.DrawRect(x, height - barHeight, width / (float)this.spectrum.Length, barHeight, paint);
-            }
+            currentMode.Render(canvas, width, height, this.spectrum);
         }
     }
 }
