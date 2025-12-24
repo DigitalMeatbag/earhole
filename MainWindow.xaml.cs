@@ -158,6 +158,9 @@ public partial class MainWindow : Window
                     FontSize = 48 
                 });
                 StatusText.Opacity = 1;
+                // Force layout/render so the message appears even under heavier render loads
+                StatusText.UpdateLayout();
+                Dispatcher.InvokeAsync(() => { }, DispatcherPriority.Render);
                 // Start timer for 2 seconds
                 var fadeTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(2) };
                 fadeTimer.Tick += (s, e) =>
@@ -169,7 +172,7 @@ public partial class MainWindow : Window
             });
 
             // Start a delay timer for 1 second before shutting down
-            var delayTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(1) };
+            var delayTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(2) };
             delayTimer.Tick += (s, args) =>
             {
                 delayTimer.Stop();
