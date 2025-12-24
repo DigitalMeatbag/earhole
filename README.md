@@ -7,6 +7,7 @@ This is a C# WPF application that captures live audio data from the system loopb
 ## Features
 
 - Real-time audio spectrum visualization with selectable modes
+- **Now Playing integration**: Displays current track from Spotify and other media players
 - Fullscreen mode (press F or F11)
 - Graceful exit with farewell message (press Q or Esc)
 - Startup message when audio is detected
@@ -16,6 +17,7 @@ This is a C# WPF application that captures live audio data from the system loopb
 ## Prerequisites
 
 - Windows 10/11 (WASAPI is Windows-specific)
+  - **Minimum**: Windows 10 version 1809 (build 17763) or later for media integration
 - .NET 6.0 Runtime (for running published version) or .NET 6.0 SDK (for building from source)
 - Stereo mix/loopback audio device enabled in Windows sound settings (for capturing system audio)
 
@@ -52,7 +54,22 @@ The repository includes pre-built releases that require no additional installati
 - **F** or **F11**: Toggle fullscreen mode
 - **Q** or **Esc**: Quit the application
 - **`** (backtick): Toggle mode menu to switch visualizers
+- **I**: Toggle between temporary (default) and persistent track info display
 - **Window Close Button**: Normal window close
+
+## Now Playing Integration
+
+earhole automatically detects and displays track information from media players running on your system:
+
+- **Supported Players**: Works with Spotify, iTunes, MusicBee, VLC, web browsers, and other media apps using Windows Media Session API
+- **Smart Detection**: Automatically prioritizes music players over video editors and other non-music apps
+- **Spotify Fallback**: If Spotify doesn't expose metadata via the Windows API, earhole automatically reads the window title as a fallback
+- **Display Modes**:
+  - **Temporary (default)**: Track info fades in when a song starts, displays for 3 seconds, then fades out
+  - **Persistent**: Press **I** to toggle; track info remains visible continuously in the top-left corner
+- **Automatic Updates**: Track info updates automatically when songs change
+
+**Note**: Track detection works best when only one media player is active. If multiple apps are playing media (e.g., Spotify and a video editor), close or pause non-music apps for best results.
 
 ## Visualization Modes
 
