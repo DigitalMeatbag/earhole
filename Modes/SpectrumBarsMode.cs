@@ -23,7 +23,12 @@ public class SpectrumBarsMode : IVisualizerMode
             float mixedValue = (leftSpectrum[i] + rightSpectrum[i]) / 2f;
             float barHeight = (float)Math.Log(1 + mixedValue) * (height / 6f);
             float x = (float)i / length * width;
-            var paint = new SKPaint { Color = GetColorForHeight(barHeight, height) };
+            SKColor baseColor = GetColorForHeight(barHeight, height);
+            
+            // On beat, blend color 50% towards white for pulse effect
+            SKColor color = isBeat ? BlendWithWhite(baseColor, 0.5f) : baseColor;
+            
+            var paint = new SKPaint { Color = color };
             canvas.DrawRect(x, height - barHeight, width / (float)length, barHeight, paint);
         }
     }
@@ -44,5 +49,16 @@ public class SpectrumBarsMode : IVisualizerMode
             case 6: return Violet;
             default: return Violet;
         }
+    }
+
+    /// <summary>
+    /// Blends a color towards white by the specified amount (0 = original color, 1 = white)
+    /// </summary>
+    private static SKColor BlendWithWhite(SKColor color, float amount)
+    {
+        byte r = (byte)(color.Red + (255 - color.Red) * amount);
+        byte g = (byte)(color.Green + (255 - color.Green) * amount);
+        byte b = (byte)(color.Blue + (255 - color.Blue) * amount);
+        return new SKColor(r, g, b, color.Alpha);
     }
 }
