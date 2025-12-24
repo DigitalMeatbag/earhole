@@ -64,6 +64,8 @@ The repository includes pre-built releases that require no additional installati
 	- ![The Circle](assets/earhole-the-circle.png)
 - **Fairies**: Seven ROYGBIV fairies fly organically across the screen, each tracking a dynamic frequency range; glow intensity reflects audio activity, speed and movement erraticism increase with rising intensity.
 	- ![Fairies](assets/earhole-fairies.png)
+- **The Wave**: Dual-channel waveform visualizer with stereo separation; right channel (red) displays upward, left channel (blue) displays downward. Beat detection triggers color change to white and spawns colorful glowing particles at random positions.
+	- ![The Wave](assets/earhole-the-wave.png)
 
 All modes update in real time; use the mode menu (`) to switch on the fly.
 
