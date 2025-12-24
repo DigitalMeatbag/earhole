@@ -53,5 +53,14 @@
                 </ListBox>
             </StackPanel>
         </Border>
+        <TextBlock x:Name="TrackInfoText" 
+                   FontSize="16" 
+                   FontWeight="SemiBold" 
+                   Foreground="White" 
+                   HorizontalAlignment="Left" 
+                   VerticalAlignment="Top" 
+                   TextAlignment="Left"
+                   Margin="10"
+                   Opacity="0.8" />
     </Grid>
 </Window>

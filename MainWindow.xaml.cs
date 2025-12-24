@@ -46,6 +46,9 @@ public partial class MainWindow : Window
     private IVisualizerMode currentMode;
     private List<IVisualizerMode> availableModes;
     private bool isModeMenuVisible = false;
+    private MediaSessionManager? mediaSessionManager;
+    private bool isTrackInfoPersistent = false;
+    private DispatcherTimer? trackInfoFadeTimer;
 
     // Beat detection
     private bool isBeat = false;
@@ -112,6 +115,73 @@ public partial class MainWindow : Window
         
         // Hook up mode selection handler
         ModeListBox.SelectionChanged += ModeListBox_SelectionChanged;
+
+        // Initialize media session manager
+        InitializeMediaSession();
+    }
+
+    private async void InitializeMediaSession()
+    {
+        try
+        {
+            mediaSessionManager = new MediaSessionManager();
+            mediaSessionManager.TrackChanged += OnTrackChanged;
+            mediaSessionManager.MediaPlayerChanged += OnMediaPlayerChanged;
+            await mediaSessionManager.InitializeAsync();
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"Failed to initialize media session: {ex.Message}");
+        }
+    }
+
+    private void OnTrackChanged(object? sender, MediaTrackInfo trackInfo)
+    {
+        Dispatcher.BeginInvoke(() =>
+        {
+            // Update track info text
+            TrackInfoText.Text = $"🎵 {trackInfo}";
+            
+            if (!isTrackInfoPersistent)
+            {
+                // Fade in
+                var fadeIn = new DoubleAnimation
+                {
+                    From = 0.0,
+                    To = 0.8,
+                    Duration = TimeSpan.FromSeconds(0.5)
+                };
+                TrackInfoText.BeginAnimation(TextBlock.OpacityProperty, fadeIn);
+                
+                // Setup fade out after 3 seconds
+                trackInfoFadeTimer?.Stop();
+                trackInfoFadeTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(3) };
+                trackInfoFadeTimer.Tick += (s, e) =>
+                {
+                    var fadeOut = new DoubleAnimation
+                    {
+                        From = 0.8,
+                        To = 0.0,
+                        Duration = TimeSpan.FromSeconds(0.5)
+                    };
+                    TrackInfoText.BeginAnimation(TextBlock.OpacityProperty, fadeOut);
+                    trackInfoFadeTimer?.Stop();
+                };
+                trackInfoFadeTimer.Start();
+            }
+            else
+            {
+                // Keep persistent display visible
+                TrackInfoText.Opacity = 0.8;
+            }
+        });
+    }
+
+    private void OnMediaPlayerChanged(object? sender, string appName)
+    {
+        // Just log for debugging, no UI notification
+        var readableName = appName?.Split('\\').Last().Replace(".exe", "") ?? "Media Player";
+        System.Diagnostics.Debug.WriteLine($"Media player changed to: {readableName}");
     }
 
     private void ModeListBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
@@ -122,6 +192,42 @@ public partial class MainWindow : Window
             // Hide the menu after selection
             isModeMenuVisible = false;
             ModeMenu.Visibility = Visibility.Collapsed;
+            
+            // Restore track info visibility based on mode
+            if (!string.IsNullOrEmpty(TrackInfoText.Text))
+            {
+                if (isTrackInfoPersistent)
+                {
+                    // Persistent mode: keep visible
+                    TrackInfoText.Opacity = 0.8;
+                }
+                else if (mediaSessionManager?.CurrentTrack != null)
+                {
+                    // Temporary mode with active track: trigger new fade cycle
+                    var fadeIn = new DoubleAnimation
+                    {
+                        From = 0.0,
+                        To = 0.8,
+                        Duration = TimeSpan.FromSeconds(0.5)
+                    };
+                    TrackInfoText.BeginAnimation(TextBlock.OpacityProperty, fadeIn);
+                    
+                    trackInfoFadeTimer?.Stop();
+                    trackInfoFadeTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(3) };
+                    trackInfoFadeTimer.Tick += (s, args) =>
+                    {
+                        var fadeOut = new DoubleAnimation
+                        {
+                            From = 0.8,
+                            To = 0.0,
+                            Duration = TimeSpan.FromSeconds(0.5)
+                        };
+                        TrackInfoText.BeginAnimation(TextBlock.OpacityProperty, fadeOut);
+                        trackInfoFadeTimer?.Stop();
+                    };
+                    trackInfoFadeTimer.Start();
+                }
+            }
         }
     }
 
@@ -198,6 +304,7 @@ public partial class MainWindow : Window
                 {
                     capture.Dispose();
                 }
+                mediaSessionManager?.Dispose();
                 Application.Current.Shutdown();
             };
             delayTimer.Start();
@@ -220,6 +327,54 @@ public partial class MainWindow : Window
         {
             isModeMenuVisible = !isModeMenuVisible;
             ModeMenu.Visibility = isModeMenuVisible ? Visibility.Visible : Visibility.Collapsed;
+            e.Handled = true;
+        }
+        else if (e.Key == Key.I) // Toggle persistent track info
+        {
+            isTrackInfoPersistent = !isTrackInfoPersistent;
+            
+            if (isTrackInfoPersistent)
+            {
+                // Stop any fade animation
+                trackInfoFadeTimer?.Stop();
+                TrackInfoText.BeginAnimation(TextBlock.OpacityProperty, null); // Cancel any ongoing animation
+                
+                // If we have current track info, show it immediately
+                if (mediaSessionManager?.CurrentTrack != null)
+                {
+                    TrackInfoText.Text = $"🎵 {mediaSessionManager.CurrentTrack}";
+                    TrackInfoText.Opacity = 0.8; // Always show it when we have a track
+                }
+                else if (!string.IsNullOrEmpty(TrackInfoText.Text))
+                {
+                    // We have text but no current session - still show what we have
+                    TrackInfoText.Opacity = 0.8;
+                }
+                
+                // Show status
+                StatusText.Text = "track info: persistent";
+                StatusText.Opacity = 1;
+                fadeStoryboard.Begin();
+            }
+            else
+            {
+                // Start fade out if no track or let the timer handle it
+                if (string.IsNullOrEmpty(TrackInfoText.Text) || TrackInfoText.Text == "🎵 Unknown Track")
+                {
+                    var fadeOut = new DoubleAnimation
+                    {
+                        From = TrackInfoText.Opacity,
+                        To = 0.0,
+                        Duration = TimeSpan.FromSeconds(0.5)
+                    };
+                    TrackInfoText.BeginAnimation(TextBlock.OpacityProperty, fadeOut);
+                }
+                
+                // Show status
+                StatusText.Text = "track info: temporary";
+                StatusText.Opacity = 1;
+                fadeStoryboard.Begin();
+            }
             e.Handled = true;
         }
     }
