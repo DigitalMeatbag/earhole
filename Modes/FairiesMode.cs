@@ -14,6 +14,7 @@ public class FairiesMode : IVisualizerMode
         public SKPoint Acceleration;
         public SKColor Color;
         public float GlowIntensity;
+        public float PreviousGlowIntensity;
         public float WanderAngle;
         public float FlutterPhase;
     }
@@ -112,6 +113,9 @@ public class FairiesMode : IVisualizerMode
             if (count > 0)
                 avgIntensity /= count;
             
+            // Store previous glow for velocity calculation
+            fairy.PreviousGlowIntensity = fairy.GlowIntensity;
+            
             // Smooth the glow intensity
             fairy.GlowIntensity = fairy.GlowIntensity * 0.8f + avgIntensity * 0.2f;
             
@@ -142,6 +146,7 @@ public class FairiesMode : IVisualizerMode
                 Acceleration = new SKPoint(0, 0),
                 Color = fairyColors[i],
                 GlowIntensity = 0f,
+                PreviousGlowIntensity = 0f,
                 WanderAngle = (float)(random.NextDouble() * Math.PI * 2),
                 FlutterPhase = (float)(random.NextDouble() * Math.PI * 2)
             };
@@ -152,9 +157,16 @@ public class FairiesMode : IVisualizerMode
 
     private void UpdateFairyMovement(Fairy fairy, int width, int height)
     {
+        // Calculate current speed to influence direction changes
+        float currentSpeed = (float)Math.Sqrt(fairy.Velocity.X * fairy.Velocity.X + fairy.Velocity.Y * fairy.Velocity.Y);
+        float normalizedSpeed = currentSpeed / 4.5f; // Normalize against max possible speed
+        
         // Organic wandering behavior
-        // Update wander angle with small random changes
-        fairy.WanderAngle += (float)(random.NextDouble() - 0.5) * 0.3f;
+        // Update wander angle with changes proportional to speed
+        // Faster fairies change direction more frequently (more erratic)
+        // Slower fairies change direction less (more smooth/lazy movement)
+        float wanderChangeAmount = 0.15f + (normalizedSpeed * 0.35f); // Range: 0.15 to 0.5
+        fairy.WanderAngle += (float)(random.NextDouble() - 0.5) * wanderChangeAmount;
         
         // Calculate wander force
         float wanderX = (float)Math.Cos(fairy.WanderAngle) * 0.15f;
@@ -191,9 +203,19 @@ public class FairiesMode : IVisualizerMode
             fairy.Velocity.Y + fairy.Acceleration.Y
         );
         
+        // Calculate speed based on glow intensity change
+        float glowChange = fairy.GlowIntensity - fairy.PreviousGlowIntensity;
+        
+        // Map glow change to speed multiplier
+        // Increasing glow (positive change) = faster
+        // Decreasing glow (negative change) = slower
+        // Base speed: 2.0, range: 1.0 (slow) to 4.5 (fast)
+        float baseMaxSpeed = 2.0f;
+        float speedMultiplier = 1.0f + Math.Clamp(glowChange * 25f, -0.5f, 1.25f);
+        float maxSpeed = baseMaxSpeed * speedMultiplier;
+        
         // Limit speed
         float speed = (float)Math.Sqrt(fairy.Velocity.X * fairy.Velocity.X + fairy.Velocity.Y * fairy.Velocity.Y);
-        float maxSpeed = 3f;
         if (speed > maxSpeed)
         {
             fairy.Velocity = new SKPoint(
