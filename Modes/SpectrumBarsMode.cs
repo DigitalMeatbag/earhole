@@ -11,6 +11,7 @@ public class SpectrumBarsMode : IVisualizerMode
     private static readonly SKColor Violet = SKColor.Parse("#8A2BE2");
 
     public string Name => "spectrum bars";
+    public string Emoji => "📊";
 
     public void Render(SKCanvas canvas, int width, int height, float[] leftSpectrum, float[] rightSpectrum, bool isBeat)
     {

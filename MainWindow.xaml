@@ -47,6 +47,11 @@
                                 <Trigger Property="IsMouseOver" Value="True">
                                     <Setter Property="Background" Value="#33FFFFFF" />
                                 </Trigger>
+                                <DataTrigger Binding="{Binding}" Value="🔀 Shuffle">
+                                    <Setter Property="Foreground" Value="#FF88FF" />
+                                    <Setter Property="FontWeight" Value="Bold" />
+                                    <Setter Property="Background" Value="#22FF88FF" />
+                                </DataTrigger>
                             </Style.Triggers>
                         </Style>
                     </ListBox.ItemContainerStyle>
@@ -62,5 +67,14 @@
                    TextAlignment="Left"
                    Margin="10"
                    Opacity="0.8" />
+        <TextBlock x:Name="ModeInfoText" 
+                   FontSize="16" 
+                   FontWeight="SemiBold" 
+                   Foreground="White" 
+                   HorizontalAlignment="Right" 
+                   VerticalAlignment="Top" 
+                   TextAlignment="Right"
+                   Margin="10"
+                   Opacity="0" />
     </Grid>
 </Window>

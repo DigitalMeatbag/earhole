@@ -15,6 +15,7 @@ public class CircleMode : IVisualizerMode
     private const float VelocitySmoothing = 0.85f; // Higher = more smoothing
 
     public string Name => "the circle";
+    public string Emoji => "⭕";
 
     public void Render(SKCanvas canvas, int width, int height, float[] leftSpectrum, float[] rightSpectrum, bool isBeat)
     {

@@ -37,6 +37,7 @@ public class FairiesMode : IVisualizerMode
     };
 
     public string Name => "fairies";
+    public string Emoji => "🧚";
 
     public void Render(SKCanvas canvas, int width, int height, float[] leftSpectrum, float[] rightSpectrum, bool isBeat)
     {

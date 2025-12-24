@@ -20,6 +20,7 @@ public class TwoCirclesMode : IVisualizerMode
     private const float VelocitySmoothing = 0.85f; // Higher = more smoothing
 
     public string Name => "two circles";
+    public string Emoji => "⚫";
 
     public void Render(SKCanvas canvas, int width, int height, float[] leftSpectrum, float[] rightSpectrum, bool isBeat)
     {

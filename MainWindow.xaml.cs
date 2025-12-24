@@ -38,6 +38,7 @@ public partial class MainWindow : Window
     private EarholeLoopbackCapture capture;
     private Thread captureThread;
     private System.Timers.Timer timer;
+    private System.Timers.Timer shuffleTimer;
     private volatile bool running = true;
     private bool isFullscreen = false;
     private bool audioDetected = false;
@@ -45,10 +46,13 @@ public partial class MainWindow : Window
     private bool isClosing = false;
     private IVisualizerMode currentMode;
     private List<IVisualizerMode> availableModes;
+    private ShuffleMode shuffleMode;
+    private bool isShuffleActive = true;
     private bool isModeMenuVisible = false;
     private MediaSessionManager? mediaSessionManager;
     private bool isTrackInfoPersistent = false;
     private DispatcherTimer? trackInfoFadeTimer;
+    private DispatcherTimer? modeInfoFadeTimer;
 
     // Beat detection
     private bool isBeat = false;
@@ -66,7 +70,7 @@ public partial class MainWindow : Window
     {
         InitializeComponent();
 
-        // Initialize available modes
+        // Initialize available modes (non-shuffle modes)
         availableModes = new List<IVisualizerMode>
         {
             new SpectrumBarsMode(),
@@ -77,14 +81,30 @@ public partial class MainWindow : Window
             new WaveMode()
         };
 
-        // Initialize the default visualizer mode
-        currentMode = availableModes[0]; // SpectrumBarsMode
+        // Initialize shuffle mode with all available modes
+        shuffleMode = new ShuffleMode(availableModes);
 
-        // Populate mode menu
+        // Set shuffle as the default mode
+        currentMode = shuffleMode;
+        isShuffleActive = true;
+
+        // Populate mode menu - shuffle mode first
+        ModeListBox.Items.Add(shuffleMode.Name);
         foreach (var mode in availableModes)
         {
             ModeListBox.Items.Add(mode.Name);
         }
+
+        // Set shuffle mode as the selected item in the menu
+        ModeListBox.SelectedIndex = 0;
+
+        // Setup shuffle timer (30 seconds)
+        shuffleTimer = new System.Timers.Timer(30000);
+        shuffleTimer.Elapsed += OnShuffleTimerElapsed;
+        shuffleTimer.Start();
+
+        // Show initial mode info
+        ShowModeInfo(currentMode);
 
         // Setup fade storyboard
         fadeStoryboard = new Storyboard();
@@ -186,9 +206,28 @@ public partial class MainWindow : Window
 
     private void ModeListBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
     {
-        if (ModeListBox.SelectedIndex >= 0 && ModeListBox.SelectedIndex < availableModes.Count)
+        if (ModeListBox.SelectedIndex < 0) return;
+
+        // Index 0 is shuffle mode, indices 1+ are regular modes
+        if (ModeListBox.SelectedIndex == 0)
         {
-            currentMode = availableModes[ModeListBox.SelectedIndex];
+            // User selected shuffle mode
+            currentMode = shuffleMode;
+            isShuffleActive = true;
+            shuffleTimer.Start();
+            ShowModeInfo(shuffleMode.CurrentMode);
+        }
+        else if (ModeListBox.SelectedIndex <= availableModes.Count)
+        {
+            // User selected a specific mode (subtract 1 because shuffle is at index 0)
+            currentMode = availableModes[ModeListBox.SelectedIndex - 1];
+            isShuffleActive = false;
+            shuffleTimer.Stop();
+            ShowModeInfo(currentMode);
+        }
+
+        if (ModeListBox.SelectedIndex >= 0)
+        {
             // Hide the menu after selection
             isModeMenuVisible = false;
             ModeMenu.Visibility = Visibility.Collapsed;
@@ -231,6 +270,49 @@ public partial class MainWindow : Window
         }
     }
 
+    private void OnShuffleTimerElapsed(object sender, System.Timers.ElapsedEventArgs e)
+    {
+        if (isShuffleActive && currentMode == shuffleMode)
+        {
+            // Select a new random mode
+            shuffleMode.SelectRandomMode();
+            
+            // Show the new mode info
+            Dispatcher.Invoke(() => ShowModeInfo(shuffleMode.CurrentMode));
+        }
+    }
+
+    private void ShowModeInfo(IVisualizerMode mode)
+    {
+        // Update mode info text with emoji and name
+        ModeInfoText.Text = $"{mode.Emoji} {mode.Name}";
+        
+        // Fade in
+        var fadeIn = new DoubleAnimation
+        {
+            From = 0.0,
+            To = 0.8,
+            Duration = TimeSpan.FromSeconds(0.5)
+        };
+        ModeInfoText.BeginAnimation(TextBlock.OpacityProperty, fadeIn);
+        
+        // Setup fade out after 3 seconds
+        modeInfoFadeTimer?.Stop();
+        modeInfoFadeTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(3) };
+        modeInfoFadeTimer.Tick += (s, e) =>
+        {
+            var fadeOut = new DoubleAnimation
+            {
+                From = 0.8,
+                To = 0.0,
+                Duration = TimeSpan.FromSeconds(0.5)
+            };
+            ModeInfoText.BeginAnimation(TextBlock.OpacityProperty, fadeOut);
+            modeInfoFadeTimer?.Stop();
+        };
+        modeInfoFadeTimer.Start();
+    }
+
     private void ToggleFullscreen()
     {
         if (isFullscreen)
@@ -266,6 +348,7 @@ public partial class MainWindow : Window
             // Stop capture immediately to prevent further UI updates (e.g., overwriting "peace out")
             running = false;
             timer?.Stop();
+            shuffleTimer?.Stop();
             if (capture != null)
             {
                 capture.DataAvailable -= OnDataAvailable;
@@ -300,6 +383,7 @@ public partial class MainWindow : Window
             {
                 delayTimer.Stop();
                 timer?.Dispose();
+                shuffleTimer?.Dispose();
                 if (capture != null)
                 {
                     capture.Dispose();

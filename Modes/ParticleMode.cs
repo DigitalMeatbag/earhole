@@ -25,6 +25,7 @@ public class ParticleMode : IVisualizerMode
     private const int FREQUENCY_BINS = 32;
 
     public string Name => "particles";
+    public string Emoji => "✨";
 
     public void Render(SKCanvas canvas, int width, int height, float[] leftSpectrum, float[] rightSpectrum, bool isBeat)
     {

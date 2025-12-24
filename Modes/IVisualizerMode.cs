@@ -13,6 +13,11 @@ public interface IVisualizerMode
     string Name { get; }
 
     /// <summary>
+    /// Gets the emoji icon for this visualizer mode
+    /// </summary>
+    string Emoji { get; }
+
+    /// <summary>
     /// Renders the visualizer on the canvas using the provided spectrum data
     /// </summary>
     /// <param name="canvas">The SkiaSharp canvas to draw on</param>
