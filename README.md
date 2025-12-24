@@ -85,7 +85,7 @@ This script will:
 - Publish as a self-contained executable
 - Create a timestamped ZIP archive (e.g., `earhole-v2025-12-23.zip`)
 
-The ZIP file can be directly distributed to users.
+The ZIP contains the entire publish output (including native dependencies like SkiaSharp). Distribute the ZIP as-is; users should extract and run `earhole.exe` from the extracted folder (do not move the exe out of that folder).
 
 ## Troubleshooting
 

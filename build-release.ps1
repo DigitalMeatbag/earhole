@@ -39,34 +39,19 @@ if ($LASTEXITCODE -ne 0) {
     exit 1
 }
 
-# Step 4: Create ZIP archive (only include necessary files)
+# Step 4: Create ZIP archive of full publish output (keeps native deps intact)
 $zipName = "earhole-v$(Get-Date -Format 'yyyy-MM-dd').zip"
 Write-Host "Creating ZIP archive: $zipName" -ForegroundColor Yellow
 
-# Create a temporary directory with only the essential files
-$tempDir = "temp_release"
-if (Test-Path $tempDir) {
-    Remove-Item $tempDir -Recurse -Force
-}
-New-Item -ItemType Directory -Path $tempDir | Out-Null
-
-# Copy only the executable and essential DLLs
-Copy-Item publish\earhole.exe $tempDir\
-Copy-Item publish\earhole.pdb $tempDir\ -ErrorAction SilentlyContinue
-
-# Create the ZIP from the temp directory
-Compress-Archive -Path $tempDir\* -DestinationPath $zipName -CompressionLevel Optimal
-
-# Clean up temp directory
-Remove-Item $tempDir -Recurse -Force
+# Zip everything in publish (excluding existing zips)
+$itemsToZip = Get-ChildItem publish | Where-Object { $_.Extension -ne '.zip' }
+Compress-Archive -Path $itemsToZip.FullName -DestinationPath $zipName -CompressionLevel Optimal
 
 # Move ZIP to publish directory and get its size
 Move-Item $zipName publish\ -Force
 $zipSize = (Get-Item "publish\$zipName").Length / 1MB
 
-# Clean up intermediate files (keep only the ZIP)
-Write-Host "Cleaning up intermediate files..." -ForegroundColor Yellow
-Get-ChildItem publish\ | Where-Object { $_.Name -ne $zipName } | Remove-Item -Recurse -Force
+# Keep published files for local testing; ZIP is in publish\
 
 Write-Host "Release build completed successfully!" -ForegroundColor Green
 Write-Host "ZIP file created: publish\$zipName" -ForegroundColor Cyan
