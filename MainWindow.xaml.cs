@@ -54,7 +54,8 @@ public partial class MainWindow : Window
         availableModes = new List<IVisualizerMode>
         {
             new SpectrumBarsMode(),
-            new ParticleMode()
+            new ParticleMode(),
+            new CircleMode()
         };
 
         // Initialize the default visualizer mode

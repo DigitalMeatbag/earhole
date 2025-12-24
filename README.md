@@ -60,8 +60,10 @@ The repository includes pre-built releases that require no additional installati
 	- ![Spectrum Bars](assets/earhole-spectrum-bars.png)
 - **Particles**: Audio-reactive particle field launched from the bottom; color and velocity respond to frequency/intensity.
 	- ![Particles](assets/earhole-particles.png)
+- **The Circle**: Circular spectrum visualizer where frequencies ripple outward from center; segments are colored red (expanding), white (stable), or blue (contracting) based on velocity.
+	- ![The Circle](assets/earhole-the-circle.png)
 
-Both modes update in real time; use the mode menu (`) to switch on the fly.
+All modes update in real time; use the mode menu (`) to switch on the fly.
 
 ## Building from Source
 
