@@ -57,7 +57,9 @@ The repository includes pre-built releases that require no additional installati
 ## Visualization Modes
 
 - **Spectrum Bars** (default): 256-bin spectrum analyzer with ROYGBIV coloring; bars scale with volume and frequency content.
+	- ![Spectrum Bars](assets/earhole-spectrum-bars.png)
 - **Particles**: Audio-reactive particle field launched from the bottom; color and velocity respond to frequency/intensity.
+	- ![Particles](assets/earhole-particles.png)
 
 Both modes update in real time; use the mode menu (`) to switch on the fly.
 
