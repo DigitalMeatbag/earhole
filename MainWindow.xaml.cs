@@ -32,7 +32,8 @@ public partial class MainWindow : Window
         return p;
     }
 
-    private float[] spectrum = new float[256]; // FFT bins
+    private float[] leftSpectrum = new float[256]; // FFT bins for left channel
+    private float[] rightSpectrum = new float[256]; // FFT bins for right channel
     private object spectrumLock = new object();
     private EarholeLoopbackCapture capture;
     private Thread captureThread;
@@ -56,6 +57,7 @@ public partial class MainWindow : Window
             new SpectrumBarsMode(),
             new ParticleMode(),
             new CircleMode(),
+            new TwoCirclesMode(),
             new FairiesMode()
         };
 
@@ -265,31 +267,43 @@ public partial class MainWindow : Window
             return; // No valid audio data
         }
 
-        // Take one channel or mix
-        float[] mono = new float[sampleCount / 2];
-        for (int i = 0; i < mono.Length; i++)
+        // Separate left and right channels
+        float[] leftChannel = new float[sampleCount / 2];
+        float[] rightChannel = new float[sampleCount / 2];
+        for (int i = 0; i < leftChannel.Length; i++)
         {
-            mono[i] = (samples[i * 2] + samples[i * 2 + 1]) / 2;
+            leftChannel[i] = samples[i * 2];      // Left channel
+            rightChannel[i] = samples[i * 2 + 1]; // Right channel
         }
 
         // Ensure length is power of 2 for FFT
-        int fftSize = NextPowerOfTwo(Math.Min(mono.Length, 2048)); // Cap at 2048
-        if (fftSize > mono.Length) fftSize = mono.Length;
+        int fftSize = NextPowerOfTwo(Math.Min(leftChannel.Length, 2048)); // Cap at 2048
+        if (fftSize > leftChannel.Length) fftSize = leftChannel.Length;
         if (fftSize < 2) return;
-        Array.Resize(ref mono, fftSize);
+        Array.Resize(ref leftChannel, fftSize);
+        Array.Resize(ref rightChannel, fftSize);
 
-        // FFT
-        var complex = mono.Select(x => new Complex(x, 0)).ToArray();
-        Fourier.Forward(complex, FourierOptions.NoScaling);
+        // FFT for left channel
+        var leftComplex = leftChannel.Select(x => new Complex(x, 0)).ToArray();
+        Fourier.Forward(leftComplex, FourierOptions.NoScaling);
 
-        float maxMag = (float)complex.Max(c => c.Magnitude);
-        Console.WriteLine($"FFT done, size: {complex.Length}, max mag: {maxMag}");
+        // FFT for right channel
+        var rightComplex = rightChannel.Select(x => new Complex(x, 0)).ToArray();
+        Fourier.Forward(rightComplex, FourierOptions.NoScaling);
+
+        float maxMagLeft = (float)leftComplex.Max(c => c.Magnitude);
+        float maxMagRight = (float)rightComplex.Max(c => c.Magnitude);
+        Console.WriteLine($"FFT done, size: {leftComplex.Length}, max mag L: {maxMagLeft}, R: {maxMagRight}");
 
         lock (this.spectrumLock)
         {
-            for (int i = 0; i < this.spectrum.Length && i < complex.Length / 2; i++)
+            for (int i = 0; i < this.leftSpectrum.Length && i < leftComplex.Length / 2; i++)
             {
-                this.spectrum[i] = (float)complex[i].Magnitude;
+                this.leftSpectrum[i] = (float)leftComplex[i].Magnitude;
+            }
+            for (int i = 0; i < this.rightSpectrum.Length && i < rightComplex.Length / 2; i++)
+            {
+                this.rightSpectrum[i] = (float)rightComplex[i].Magnitude;
             }
         }
 
@@ -308,7 +322,7 @@ public partial class MainWindow : Window
         // Use the current mode to render the visualization
         lock (this.spectrumLock)
         {
-            currentMode.Render(canvas, width, height, this.spectrum);
+            currentMode.Render(canvas, width, height, this.leftSpectrum, this.rightSpectrum);
         }
     }
 }

@@ -3,47 +3,76 @@ using SkiaSharp;
 namespace earhole.Modes;
 
 /// <summary>
-/// The Circle - A circular audio visualizer where spectrum frequencies ripple outward
+/// Two Circles - Dual circular audio visualizer with separate circles for left and right stereo channels
 /// </summary>
-public class CircleMode : IVisualizerMode
+public class TwoCirclesMode : IVisualizerMode
 {
-    private float[] previousRadii = Array.Empty<float>();
-    private float[] currentRadii = Array.Empty<float>();
-    private float[] smoothedVelocities = Array.Empty<float>(); // Smoothed velocity for color
+    private float[] previousRadiiLeft = Array.Empty<float>();
+    private float[] currentRadiiLeft = Array.Empty<float>();
+    private float[] smoothedVelocitiesLeft = Array.Empty<float>();
+    
+    private float[] previousRadiiRight = Array.Empty<float>();
+    private float[] currentRadiiRight = Array.Empty<float>();
+    private float[] smoothedVelocitiesRight = Array.Empty<float>();
+    
     private float baseRadius = 0;
     private const float MaxGrowth = 150f; // Maximum distance spectrum can grow outward
     private const float VelocitySmoothing = 0.85f; // Higher = more smoothing
 
-    public string Name => "the circle";
+    public string Name => "two circles";
 
     public void Render(SKCanvas canvas, int width, int height, float[] leftSpectrum, float[] rightSpectrum)
     {
         canvas.Clear(SKColors.Black);
 
-        // Mix stereo channels for visualization
-        int length = Math.Min(leftSpectrum.Length, rightSpectrum.Length);
-        float[] spectrum = new float[length];
-        for (int i = 0; i < length; i++)
-        {
-            spectrum[i] = (leftSpectrum[i] + rightSpectrum[i]) / 2f;
-        }
-
-        // Calculate center and base radius
-        float centerX = width / 2f;
+        // Calculate base radius - each circle takes up about 1/4 of the smaller dimension
+        baseRadius = Math.Min(width, height) * 0.25f;
+        
+        // Position circles horizontally adjacent
+        // Left circle at 1/4 of width, right circle at 3/4 of width
+        float leftCenterX = width * 0.25f;
+        float rightCenterX = width * 0.75f;
         float centerY = height / 2f;
-        baseRadius = Math.Min(width, height) * 0.25f; // Circle takes up ~50% of smaller dimension
 
         // Initialize or resize radius tracking arrays
-        if (previousRadii.Length != spectrum.Length)
+        if (previousRadiiLeft.Length != leftSpectrum.Length)
         {
-            previousRadii = new float[spectrum.Length];
-            currentRadii = new float[spectrum.Length];
-            smoothedVelocities = new float[spectrum.Length];
-            Array.Fill(previousRadii, baseRadius);
-            Array.Fill(currentRadii, baseRadius);
-            Array.Fill(smoothedVelocities, 0f);
+            previousRadiiLeft = new float[leftSpectrum.Length];
+            currentRadiiLeft = new float[leftSpectrum.Length];
+            smoothedVelocitiesLeft = new float[leftSpectrum.Length];
+            
+            Array.Fill(previousRadiiLeft, baseRadius);
+            Array.Fill(currentRadiiLeft, baseRadius);
+            Array.Fill(smoothedVelocitiesLeft, 0f);
+        }
+        
+        if (previousRadiiRight.Length != rightSpectrum.Length)
+        {
+            previousRadiiRight = new float[rightSpectrum.Length];
+            currentRadiiRight = new float[rightSpectrum.Length];
+            smoothedVelocitiesRight = new float[rightSpectrum.Length];
+            
+            Array.Fill(previousRadiiRight, baseRadius);
+            Array.Fill(currentRadiiRight, baseRadius);
+            Array.Fill(smoothedVelocitiesRight, 0f);
         }
 
+        // Render left circle with left channel spectrum
+        RenderCircle(canvas, leftCenterX, centerY, leftSpectrum, 
+                    ref currentRadiiLeft, ref previousRadiiLeft, ref smoothedVelocitiesLeft);
+
+        // Render right circle with right channel spectrum
+        RenderCircle(canvas, rightCenterX, centerY, rightSpectrum,
+                    ref currentRadiiRight, ref previousRadiiRight, ref smoothedVelocitiesRight);
+
+        // Update previous radii for next frame
+        Array.Copy(currentRadiiLeft, previousRadiiLeft, leftSpectrum.Length);
+        Array.Copy(currentRadiiRight, previousRadiiRight, rightSpectrum.Length);
+    }
+
+    private void RenderCircle(SKCanvas canvas, float centerX, float centerY, float[] spectrum,
+                             ref float[] currentRadii, ref float[] previousRadii, ref float[] smoothedVelocities)
+    {
         // Update current radii based on spectrum
         for (int i = 0; i < spectrum.Length; i++)
         {
@@ -168,8 +197,5 @@ public class CircleMode : IVisualizerMode
                 }
             }
         }
-
-        // Update previous radii for next frame
-        Array.Copy(currentRadii, previousRadii, spectrum.Length);
     }
 }

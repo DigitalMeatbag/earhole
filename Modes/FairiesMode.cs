@@ -38,9 +38,17 @@ public class FairiesMode : IVisualizerMode
 
     public string Name => "fairies";
 
-    public void Render(SKCanvas canvas, int width, int height, float[] spectrum)
+    public void Render(SKCanvas canvas, int width, int height, float[] leftSpectrum, float[] rightSpectrum)
     {
         canvas.Clear(SKColors.Black);
+
+        // Mix stereo channels for visualization
+        int length = Math.Min(leftSpectrum.Length, rightSpectrum.Length);
+        float[] spectrum = new float[length];
+        for (int i = 0; i < length; i++)
+        {
+            spectrum[i] = (leftSpectrum[i] + rightSpectrum[i]) / 2f;
+        }
 
         // Initialize fairies on first render
         if (!initialized || this.width != width || this.height != height)

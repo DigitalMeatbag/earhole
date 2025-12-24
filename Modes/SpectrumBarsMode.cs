@@ -12,16 +12,19 @@ public class SpectrumBarsMode : IVisualizerMode
 
     public string Name => "spectrum bars";
 
-    public void Render(SKCanvas canvas, int width, int height, float[] spectrum)
+    public void Render(SKCanvas canvas, int width, int height, float[] leftSpectrum, float[] rightSpectrum)
     {
         canvas.Clear(SKColors.Black);
 
-        for (int i = 0; i < spectrum.Length; i++)
+        // Mix stereo channels for visualization
+        int length = Math.Min(leftSpectrum.Length, rightSpectrum.Length);
+        for (int i = 0; i < length; i++)
         {
-            float barHeight = (float)Math.Log(1 + spectrum[i]) * (height / 6f);
-            float x = (float)i / spectrum.Length * width;
+            float mixedValue = (leftSpectrum[i] + rightSpectrum[i]) / 2f;
+            float barHeight = (float)Math.Log(1 + mixedValue) * (height / 6f);
+            float x = (float)i / length * width;
             var paint = new SKPaint { Color = GetColorForHeight(barHeight, height) };
-            canvas.DrawRect(x, height - barHeight, width / (float)spectrum.Length, barHeight, paint);
+            canvas.DrawRect(x, height - barHeight, width / (float)length, barHeight, paint);
         }
     }
 
