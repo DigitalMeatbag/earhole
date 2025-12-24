@@ -55,7 +55,8 @@ public partial class MainWindow : Window
         {
             new SpectrumBarsMode(),
             new ParticleMode(),
-            new CircleMode()
+            new CircleMode(),
+            new FairiesMode()
         };
 
         // Initialize the default visualizer mode
