@@ -26,7 +26,7 @@
                 VerticalAlignment="Center"
                 Visibility="Collapsed">
             <StackPanel>
-                <TextBlock Text="Visualizer Modes"
+                <TextBlock Text="- visualizer modes -"
                            FontSize="24"
                            FontWeight="Bold"
                            Foreground="White"
