@@ -49,7 +49,7 @@ public partial class MainWindow : Window
         InitializeComponent();
 
         // Initialize the default visualizer mode
-        currentMode = new SpectrumBarsMode();
+        currentMode = new ParticleMode();
 
         // Setup fade storyboard
         fadeStoryboard = new Storyboard();
