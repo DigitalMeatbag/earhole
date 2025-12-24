@@ -20,5 +20,6 @@ public interface IVisualizerMode
     /// <param name="height">Height of the canvas</param>
     /// <param name="leftSpectrum">Array of spectrum magnitudes from FFT for left channel</param>
     /// <param name="rightSpectrum">Array of spectrum magnitudes from FFT for right channel</param>
-    void Render(SKCanvas canvas, int width, int height, float[] leftSpectrum, float[] rightSpectrum);
+    /// <param name="isBeat">True if a beat was detected in the current frame</param>
+    void Render(SKCanvas canvas, int width, int height, float[] leftSpectrum, float[] rightSpectrum, bool isBeat);
 }

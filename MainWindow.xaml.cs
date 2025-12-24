@@ -47,6 +47,13 @@ public partial class MainWindow : Window
     private List<IVisualizerMode> availableModes;
     private bool isModeMenuVisible = false;
 
+    // Beat detection
+    private bool isBeat = false;
+    private float averageEnergy = 0f;
+    private const float BEAT_THRESHOLD = 1.4f;
+    private const float ENERGY_DECAY = 0.95f;
+    private const int BEAT_BINS = 15; // Number of low-frequency bins to monitor
+
     public MainWindow()
     {
         InitializeComponent();
@@ -306,6 +313,27 @@ public partial class MainWindow : Window
             {
                 this.rightSpectrum[i] = (float)rightComplex[i].Magnitude;
             }
+
+            // Beat detection: monitor low-frequency energy
+            float currentEnergy = 0f;
+            int binsToCheck = Math.Min(BEAT_BINS, Math.Min(this.leftSpectrum.Length, this.rightSpectrum.Length));
+            for (int i = 0; i < binsToCheck; i++)
+            {
+                currentEnergy += (this.leftSpectrum[i] + this.rightSpectrum[i]) / 2f;
+            }
+
+            // Detect beat if current energy exceeds threshold
+            if (currentEnergy > averageEnergy * BEAT_THRESHOLD)
+            {
+                this.isBeat = true;
+            }
+            else
+            {
+                this.isBeat = false;
+            }
+
+            // Update running average with decay
+            averageEnergy = averageEnergy * ENERGY_DECAY + currentEnergy * (1 - ENERGY_DECAY);
         }
 
         // Invalidate the view to trigger repaint
@@ -323,7 +351,7 @@ public partial class MainWindow : Window
         // Use the current mode to render the visualization
         lock (this.spectrumLock)
         {
-            currentMode.Render(canvas, width, height, this.leftSpectrum, this.rightSpectrum);
+            currentMode.Render(canvas, width, height, this.leftSpectrum, this.rightSpectrum, this.isBeat);
         }
     }
 }

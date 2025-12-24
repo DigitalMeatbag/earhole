@@ -24,7 +24,7 @@ public class ParticleMode : IVisualizerMode
 
     public string Name => "particles";
 
-    public void Render(SKCanvas canvas, int width, int height, float[] leftSpectrum, float[] rightSpectrum)
+    public void Render(SKCanvas canvas, int width, int height, float[] leftSpectrum, float[] rightSpectrum, bool isBeat)
     {
         canvas.Clear(SKColors.Black);
 

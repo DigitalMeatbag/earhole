@@ -7,22 +7,86 @@ namespace earhole.Modes;
 /// </summary>
 public class WaveMode : IVisualizerMode
 {
+    private class BeatParticle
+    {
+        public SKPoint Position;
+        public SKColor Color;
+        public float Lifetime;
+        public float MaxLifetime;
+        public float Size;
+        public float Alpha => Math.Max(0, Lifetime / MaxLifetime);
+    }
+
+    private readonly List<BeatParticle> particles = new List<BeatParticle>();
+    private readonly Random random = new Random();
+
     public string Name => "the wave";
 
-    public void Render(SKCanvas canvas, int width, int height, float[] leftSpectrum, float[] rightSpectrum)
+    public void Render(SKCanvas canvas, int width, int height, float[] leftSpectrum, float[] rightSpectrum, bool isBeat)
     {
         canvas.Clear(SKColors.Black);
+
+        // Spawn particles on beat
+        if (isBeat)
+        {
+            int particleCount = random.Next(10, 30); // Random number between 10-30
+            for (int i = 0; i < particleCount; i++)
+            {
+                particles.Add(new BeatParticle
+                {
+                    Position = new SKPoint(random.Next(0, width), random.Next(0, height)),
+                    Color = GetRandomColor(),
+                    Lifetime = 0.5f, // 0.5 seconds
+                    MaxLifetime = 0.5f,
+                    Size = random.Next(5, 15)
+                });
+            }
+        }
+
+        // Update and render particles with glow effect
+        for (int i = particles.Count - 1; i >= 0; i--)
+        {
+            var particle = particles[i];
+            particle.Lifetime -= 0.016f; // ~60fps
+
+            if (particle.Lifetime <= 0)
+            {
+                particles.RemoveAt(i);
+                continue;
+            }
+
+            // Draw glow layers (outer to inner)
+            for (int layer = 3; layer >= 1; layer--)
+            {
+                float glowSize = particle.Size * (1 + layer * 0.3f);
+                byte glowAlpha = (byte)(particle.Alpha * 50 / layer);
+                
+                using var glowPaint = new SKPaint
+                {
+                    Color = particle.Color.WithAlpha(glowAlpha),
+                    IsAntialias = true,
+                    Style = SKPaintStyle.Fill
+                };
+                canvas.DrawCircle(particle.Position, glowSize, glowPaint);
+            }
+
+            // Draw core particle
+            using var particlePaint = new SKPaint
+            {
+                Color = particle.Color.WithAlpha((byte)(particle.Alpha * 255)),
+                IsAntialias = true,
+                Style = SKPaintStyle.Fill
+            };
+            canvas.DrawCircle(particle.Position, particle.Size, particlePaint);
+        }
 
         int length = Math.Min(leftSpectrum.Length, rightSpectrum.Length);
         if (length < 2) return;
 
-        using var paint = new SKPaint
-        {
-            Color = SKColors.White,
-            StrokeWidth = 2,
-            IsAntialias = true,
-            Style = SKPaintStyle.Stroke
-        };
+        // Colors: red for right, blue for left, white on beat
+        var rightColor = isBeat ? SKColors.White : SKColors.Red;
+        var leftColor = isBeat ? SKColors.White : SKColors.Blue;
+        var strokeWidth = isBeat ? 3f : 2f; // Slightly thicker on beat
 
         // Calculate center line and maximum allowed amplitude
         float centerY = height / 2f;
@@ -56,8 +120,43 @@ public class WaveMode : IVisualizerMode
             leftPath.LineTo(x, y);
         }
 
-        // Draw both waveforms
-        canvas.DrawPath(rightPath, paint);
-        canvas.DrawPath(leftPath, paint);
+        // Draw both waveforms with separate colors
+        using (var rightPaint = new SKPaint
+        {
+            Color = rightColor,
+            StrokeWidth = strokeWidth,
+            IsAntialias = true,
+            Style = SKPaintStyle.Stroke
+        })
+        {
+            canvas.DrawPath(rightPath, rightPaint);
+        }
+
+        using (var leftPaint = new SKPaint
+        {
+            Color = leftColor,
+            StrokeWidth = strokeWidth,
+            IsAntialias = true,
+            Style = SKPaintStyle.Stroke
+        })
+        {
+            canvas.DrawPath(leftPath, leftPaint);
+        }
+    }
+
+    private SKColor GetRandomColor()
+    {
+        var colors = new[]
+        {
+            SKColors.Cyan,
+            SKColors.Magenta,
+            SKColors.Yellow,
+            SKColors.LimeGreen,
+            SKColors.Orange,
+            SKColors.Purple,
+            SKColors.Pink,
+            SKColors.DeepSkyBlue
+        };
+        return colors[random.Next(colors.Length)];
     }
 }

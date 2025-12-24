@@ -38,7 +38,7 @@ public class FairiesMode : IVisualizerMode
 
     public string Name => "fairies";
 
-    public void Render(SKCanvas canvas, int width, int height, float[] leftSpectrum, float[] rightSpectrum)
+    public void Render(SKCanvas canvas, int width, int height, float[] leftSpectrum, float[] rightSpectrum, bool isBeat)
     {
         canvas.Clear(SKColors.Black);
 
