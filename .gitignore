@@ -1,0 +1,49 @@
+# .NET
+bin/
+obj/
+*.user
+*.suo
+*.cache
+*.log
+*.tmp
+*.temp
+
+# IDEs
+.vscode/
+.vs/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Build outputs (but allow ZIP files in publish/)
+publish/*
+!publish/*.zip
+
+# Visual Studio
+.vs/
+.vscode/
+*.swp
+*.swo
+
+# NuGet
+packages/
+*.nupkg
+.nuget/
+
+# Windows
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+# macOS
+.DS_Store
+
+# Linux
+*~
+
+# Project specific
+# Add any project-specific ignores here
