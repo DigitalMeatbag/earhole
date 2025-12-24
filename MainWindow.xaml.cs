@@ -58,7 +58,8 @@ public partial class MainWindow : Window
             new ParticleMode(),
             new CircleMode(),
             new TwoCirclesMode(),
-            new FairiesMode()
+            new FairiesMode(),
+            new WaveMode()
         };
 
         // Initialize the default visualizer mode
