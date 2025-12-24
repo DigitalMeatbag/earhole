@@ -57,144 +57,121 @@ public class TwoCirclesMode : IVisualizerMode
             Array.Fill(smoothedVelocitiesRight, 0f);
         }
 
-        // Render left circle with left channel spectrum
-        RenderCircle(canvas, leftCenterX, centerY, leftSpectrum, 
-                    ref currentRadiiLeft, ref previousRadiiLeft, ref smoothedVelocitiesLeft);
+        // Update radii for both circles
+        UpdateRadii(leftSpectrum, ref currentRadiiLeft);
+        UpdateRadii(rightSpectrum, ref currentRadiiRight);
 
-        // Render right circle with right channel spectrum
-        RenderCircle(canvas, rightCenterX, centerY, rightSpectrum,
-                    ref currentRadiiRight, ref previousRadiiRight, ref smoothedVelocitiesRight);
+        // Render both circles with interleaved segments for better blending
+        RenderInterleavedCircles(canvas, leftCenterX, rightCenterX, centerY, 
+                                leftSpectrum, rightSpectrum,
+                                ref currentRadiiLeft, ref previousRadiiLeft, ref smoothedVelocitiesLeft,
+                                ref currentRadiiRight, ref previousRadiiRight, ref smoothedVelocitiesRight);
 
         // Update previous radii for next frame
         Array.Copy(currentRadiiLeft, previousRadiiLeft, leftSpectrum.Length);
         Array.Copy(currentRadiiRight, previousRadiiRight, rightSpectrum.Length);
     }
 
-    private void RenderCircle(SKCanvas canvas, float centerX, float centerY, float[] spectrum,
-                             ref float[] currentRadii, ref float[] previousRadii, ref float[] smoothedVelocities)
+    private void UpdateRadii(float[] spectrum, ref float[] currentRadii)
     {
-        // Update current radii based on spectrum
         for (int i = 0; i < spectrum.Length; i++)
         {
             float targetRadius = baseRadius + (spectrum[i] * MaxGrowth);
-            
-            // Smooth the radius change
             currentRadii[i] = currentRadii[i] * 0.7f + targetRadius * 0.3f;
         }
+    }
 
-        // Draw the circle as connected segments
-        using (var path = new SKPath())
+    private void RenderInterleavedCircles(SKCanvas canvas, float leftCenterX, float rightCenterX, float centerY,
+                                         float[] leftSpectrum, float[] rightSpectrum,
+                                         ref float[] currentRadiiLeft, ref float[] previousRadiiLeft, ref float[] smoothedVelocitiesLeft,
+                                         ref float[] currentRadiiRight, ref float[] previousRadiiRight, ref float[] smoothedVelocitiesRight)
+    {
+        int length = Math.Max(leftSpectrum.Length, rightSpectrum.Length);
+        
+        // Interleave drawing segments from both circles
+        for (int i = 0; i < length; i++)
         {
-            bool firstPoint = true;
-
-            for (int i = 0; i <= spectrum.Length; i++)
+            // Draw left circle segment
+            if (i < leftSpectrum.Length)
             {
-                // Wrap around to close the circle
-                int index = i % spectrum.Length;
-                
-                // Calculate angle (starting at top, going clockwise)
-                // -PI/2 starts at top (12 o'clock), and we go clockwise
-                float angle = -MathF.PI / 2f + (2f * MathF.PI * i / spectrum.Length);
-                
-                // Calculate position
-                float radius = currentRadii[index];
-                float x = centerX + radius * MathF.Cos(angle);
-                float y = centerY + radius * MathF.Sin(angle);
-
-                if (firstPoint)
-                {
-                    path.MoveTo(x, y);
-                    firstPoint = false;
-                }
-                else
-                {
-                    path.LineTo(x, y);
-                }
+                DrawSegment(canvas, leftCenterX, centerY, i, leftSpectrum.Length,
+                           ref currentRadiiLeft, ref previousRadiiLeft, ref smoothedVelocitiesLeft);
             }
-
-            path.Close();
-
-            // Draw the filled circle shape with white outline
-            using (var fillPaint = new SKPaint
+            
+            // Draw right circle segment
+            if (i < rightSpectrum.Length)
             {
-                Color = SKColors.Black,
-                IsAntialias = true,
-                Style = SKPaintStyle.Fill
-            })
-            {
-                canvas.DrawPath(path, fillPaint);
+                DrawSegment(canvas, rightCenterX, centerY, i, rightSpectrum.Length,
+                           ref currentRadiiRight, ref previousRadiiRight, ref smoothedVelocitiesRight);
             }
         }
+    }
 
-        // Draw individual colored segments based on velocity
-        for (int i = 0; i < spectrum.Length; i++)
+    private void DrawSegment(SKCanvas canvas, float centerX, float centerY, int i, int spectrumLength,
+                            ref float[] currentRadii, ref float[] previousRadii, ref float[] smoothedVelocities)
+    {
+        // Calculate instantaneous velocity (rate of change)
+        float instantVelocity = currentRadii[i] - previousRadii[i];
+        
+        // Smooth the velocity over time for more stable color representation
+        smoothedVelocities[i] = smoothedVelocities[i] * VelocitySmoothing + instantVelocity * (1f - VelocitySmoothing);
+        
+        // Amplify and normalize velocity to color range
+        float normalizedVelocity = Math.Clamp(smoothedVelocities[i] * 2f, -1f, 1f);
+        
+        // Calculate color based on smoothed velocity
+        SKColor color;
+        if (normalizedVelocity > 0.05f)
         {
-            // Calculate instantaneous velocity (rate of change)
-            float instantVelocity = currentRadii[i] - previousRadii[i];
-            
-            // Smooth the velocity over time for more stable color representation
-            smoothedVelocities[i] = smoothedVelocities[i] * VelocitySmoothing + instantVelocity * (1f - VelocitySmoothing);
-            
-            // Amplify and normalize velocity to color range
-            // Amplification makes small changes more visible
-            float normalizedVelocity = Math.Clamp(smoothedVelocities[i] * 2f, -1f, 1f);
-            
-            // Calculate color based on smoothed velocity
-            SKColor color;
-            if (normalizedVelocity > 0.05f) // Small threshold to avoid flickering at rest
-            {
-                // Moving outward: interpolate from white to red
-                byte component = (byte)(255 * (1f - normalizedVelocity));
-                color = new SKColor(255, component, component);
-            }
-            else if (normalizedVelocity < -0.05f)
-            {
-                // Moving inward: interpolate from white to blue
-                byte component = (byte)(255 * (1f + normalizedVelocity));
-                color = new SKColor(component, component, 255);
-            }
-            else
-            {
-                // No significant change: white
-                color = SKColors.White;
-            }
+            byte component = (byte)(255 * (1f - normalizedVelocity));
+            color = new SKColor(255, component, component);
+        }
+        else if (normalizedVelocity < -0.05f)
+        {
+            byte component = (byte)(255 * (1f + normalizedVelocity));
+            color = new SKColor(component, component, 255);
+        }
+        else
+        {
+            color = SKColors.White;
+        }
 
-            // Calculate angles for this segment
-            float angle1 = -MathF.PI / 2f + (2f * MathF.PI * i / spectrum.Length);
-            float angle2 = -MathF.PI / 2f + (2f * MathF.PI * (i + 1) / spectrum.Length);
-            
-            // Calculate inner and outer points for this segment
-            float innerRadius = baseRadius;
-            float outerRadius = currentRadii[i];
-            
-            float x1Inner = centerX + innerRadius * MathF.Cos(angle1);
-            float y1Inner = centerY + innerRadius * MathF.Sin(angle1);
-            float x1Outer = centerX + outerRadius * MathF.Cos(angle1);
-            float y1Outer = centerY + outerRadius * MathF.Sin(angle1);
-            
-            float x2Inner = centerX + innerRadius * MathF.Cos(angle2);
-            float y2Inner = centerY + innerRadius * MathF.Sin(angle2);
-            float x2Outer = centerX + outerRadius * MathF.Cos(angle2);
-            float y2Outer = centerY + outerRadius * MathF.Sin(angle2);
+        // Calculate angles for this segment
+        float angle1 = -MathF.PI / 2f + (2f * MathF.PI * i / spectrumLength);
+        float angle2 = -MathF.PI / 2f + (2f * MathF.PI * (i + 1) / spectrumLength);
+        
+        // Calculate inner and outer points for this segment
+        float innerRadius = baseRadius;
+        float outerRadius = currentRadii[i];
+        
+        float x1Inner = centerX + innerRadius * MathF.Cos(angle1);
+        float y1Inner = centerY + innerRadius * MathF.Sin(angle1);
+        float x1Outer = centerX + outerRadius * MathF.Cos(angle1);
+        float y1Outer = centerY + outerRadius * MathF.Sin(angle1);
+        
+        float x2Inner = centerX + innerRadius * MathF.Cos(angle2);
+        float y2Inner = centerY + innerRadius * MathF.Sin(angle2);
+        float x2Outer = centerX + outerRadius * MathF.Cos(angle2);
+        float y2Outer = centerY + outerRadius * MathF.Sin(angle2);
 
-            // Draw segment as a quad
-            using (var path = new SKPath())
+        // Draw segment as a quad
+        using (var path = new SKPath())
+        {
+            path.MoveTo(x1Inner, y1Inner);
+            path.LineTo(x1Outer, y1Outer);
+            path.LineTo(x2Outer, y2Outer);
+            path.LineTo(x2Inner, y2Inner);
+            path.Close();
+
+            using (var paint = new SKPaint
             {
-                path.MoveTo(x1Inner, y1Inner);
-                path.LineTo(x1Outer, y1Outer);
-                path.LineTo(x2Outer, y2Outer);
-                path.LineTo(x2Inner, y2Inner);
-                path.Close();
-
-                using (var paint = new SKPaint
-                {
-                    Color = color,
-                    IsAntialias = true,
-                    Style = SKPaintStyle.Fill
-                })
-                {
-                    canvas.DrawPath(path, paint);
-                }
+                Color = color.WithAlpha(200),
+                IsAntialias = true,
+                Style = SKPaintStyle.Fill,
+                BlendMode = SKBlendMode.Plus
+            })
+            {
+                canvas.DrawPath(path, paint);
             }
         }
     }
