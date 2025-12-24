@@ -16,7 +16,7 @@ public class CircleMode : IVisualizerMode
 
     public string Name => "the circle";
 
-    public void Render(SKCanvas canvas, int width, int height, float[] leftSpectrum, float[] rightSpectrum)
+    public void Render(SKCanvas canvas, int width, int height, float[] leftSpectrum, float[] rightSpectrum, bool isBeat)
     {
         canvas.Clear(SKColors.Black);
 
