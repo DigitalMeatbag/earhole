@@ -50,23 +50,67 @@ public class FairiesMode : IVisualizerMode
             initialized = true;
         }
 
-        // Divide spectrum into 7 frequency ranges
-        int rangeSize = spectrum.Length / 7;
+        // Find active frequency ranges in the spectrum
+        float activityThreshold = 0.05f; // Minimum intensity to be considered "active"
         
-        // Update each fairy's glow based on its frequency range
+        // Find the lowest and highest active frequencies
+        int lowestActive = -1;
+        int highestActive = -1;
+        
+        for (int i = 0; i < spectrum.Length; i++)
+        {
+            if (spectrum[i] > activityThreshold)
+            {
+                if (lowestActive == -1)
+                    lowestActive = i;
+                highestActive = i;
+            }
+        }
+        
+        // If no activity, use minimal range at the low end
+        if (lowestActive == -1)
+        {
+            lowestActive = 0;
+            highestActive = Math.Min(spectrum.Length - 1, 70); // Default to low frequency range
+        }
+        
+        // Ensure we have a reasonable range (at least 7 bins)
+        int activeRange = highestActive - lowestActive + 1;
+        if (activeRange < 7)
+        {
+            // Expand range to ensure we have enough for 7 fairies
+            int expansion = (7 - activeRange) / 2;
+            lowestActive = Math.Max(0, lowestActive - expansion);
+            highestActive = Math.Min(spectrum.Length - 1, highestActive + expansion + (7 - activeRange) % 2);
+        }
+        
+        // Divide the active range into 7 sections for the fairies
+        // Fairies maintain order: red (lowest), orange, yellow, green, blue, indigo, violet (highest)
+        float sectionSize = (highestActive - lowestActive + 1) / 7f;
+        
+        // Update each fairy's glow based on its dynamically assigned frequency range
         for (int i = 0; i < fairies.Count; i++)
         {
             var fairy = fairies[i];
             
-            // Calculate average intensity for this fairy's frequency range
-            int startIdx = i * rangeSize;
-            int endIdx = (i == 6) ? spectrum.Length : (i + 1) * rangeSize; // Last fairy gets remainder
+            // Calculate this fairy's frequency range within the active spectrum
+            int startIdx = lowestActive + (int)(i * sectionSize);
+            int endIdx = (i == 6) ? highestActive + 1 : lowestActive + (int)((i + 1) * sectionSize);
+            
+            // Ensure valid range
+            startIdx = Math.Max(0, Math.Min(spectrum.Length - 1, startIdx));
+            endIdx = Math.Max(startIdx + 1, Math.Min(spectrum.Length, endIdx));
+            
+            // Calculate average intensity for this fairy's dynamic frequency range
             float avgIntensity = 0f;
+            int count = 0;
             for (int j = startIdx; j < endIdx; j++)
             {
                 avgIntensity += spectrum[j];
+                count++;
             }
-            avgIntensity /= (endIdx - startIdx);
+            if (count > 0)
+                avgIntensity /= count;
             
             // Smooth the glow intensity
             fairy.GlowIntensity = fairy.GlowIntensity * 0.8f + avgIntensity * 0.2f;
