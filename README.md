@@ -62,6 +62,8 @@ The repository includes pre-built releases that require no additional installati
 	- ![Particles](assets/earhole-particles.png)
 - **The Circle**: Circular spectrum visualizer where frequencies ripple outward from center; segments are colored red (expanding), white (stable), or blue (contracting) based on velocity.
 	- ![The Circle](assets/earhole-the-circle.png)
+- **Two Circles**: Dual circular visualizers displaying true stereo separation; left channel (left circle) uses red/blue coloring, right channel (right circle) uses green/orange; overlapping segments blend additively to reveal stereo imaging and phase relationships.
+	- ![Two Circles](assets/earhole-two-circles.png)
 - **Fairies**: Seven ROYGBIV fairies fly organically across the screen, each tracking a dynamic frequency range; glow intensity reflects audio activity, speed and movement erraticism increase with rising intensity.
 	- ![Fairies](assets/earhole-fairies.png)
 
