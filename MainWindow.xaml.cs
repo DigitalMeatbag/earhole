@@ -140,19 +140,32 @@ public partial class MainWindow : Window
             isClosing = true;
             e.Cancel = true;
 
+            // Stop capture immediately to prevent further UI updates (e.g., overwriting "peace out")
+            running = false;
+            timer?.Stop();
+            if (capture != null)
+            {
+                capture.DataAvailable -= OnDataAvailable;
+                capture.StopRecording();
+            }
+
             // Show "peace out" message
             Dispatcher.Invoke(() =>
             {
-                StatusText.Text = "peace out";
+                StatusText.Inlines.Clear();
+                StatusText.Inlines.Add(new System.Windows.Documents.Run("peace out") 
+                { 
+                    FontSize = 48 
+                });
                 StatusText.Opacity = 1;
-                // Start timer for 5 seconds
-                var timer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(5) };
-                timer.Tick += (s, e) =>
+                // Start timer for 2 seconds
+                var fadeTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(2) };
+                fadeTimer.Tick += (s, e) =>
                 {
                     fadeStoryboard.Begin();
-                    timer.Stop();
+                    fadeTimer.Stop();
                 };
-                timer.Start();
+                fadeTimer.Start();
             });
 
             // Start a delay timer for 1 second before shutting down
@@ -160,13 +173,9 @@ public partial class MainWindow : Window
             delayTimer.Tick += (s, args) =>
             {
                 delayTimer.Stop();
-                running = false;
-                timer.Stop();
-                timer.Dispose();
+                timer?.Dispose();
                 if (capture != null)
                 {
-                    capture.DataAvailable -= OnDataAvailable;
-                    capture.StopRecording();
                     capture.Dispose();
                 }
                 Application.Current.Shutdown();
@@ -207,7 +216,7 @@ public partial class MainWindow : Window
 
     private void OnDataAvailable(object sender, WaveInEventArgs e)
     {
-        if (!running) return;
+        if (!running || isClosing) return;
 
         // Convert to float array
         int sampleCount = e.BytesRecorded / 4; // 32-bit float
@@ -221,7 +230,16 @@ public partial class MainWindow : Window
                 audioDetected = true;
                 Dispatcher.Invoke(() =>
                 {
-                    StatusText.Text = "earhole";
+                    StatusText.Inlines.Clear();
+                    StatusText.Inlines.Add(new System.Windows.Documents.Run("earhole") 
+                    { 
+                        FontSize = 48 
+                    });
+                    StatusText.Inlines.Add(new System.Windows.Documents.LineBreak());
+                    StatusText.Inlines.Add(new System.Windows.Documents.Run("` for modes") 
+                    { 
+                        FontSize = 12 
+                    });
                     StatusText.Opacity = 1;
                     // Start timer for 5 seconds
                     var timer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(5) };

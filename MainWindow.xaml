@@ -17,6 +17,7 @@
                    Foreground="White" 
                    HorizontalAlignment="Center" 
                    VerticalAlignment="Center" 
+                   TextAlignment="Center"
                    Opacity="1" />
         <Border x:Name="ModeMenu"
                 Background="#DD000000"

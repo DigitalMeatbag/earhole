@@ -94,12 +94,17 @@ public class ParticleMode : IVisualizerMode
         // Spawn across full width - distribute evenly based on bin
         float spreadX = (bin / 128f) * width;
         
+        // Calculate initial velocity based on intensity
+        // Higher intensity = higher upward velocity
+        float baseVelocity = intensity * 15f; // Scale factor for velocity
+        float velocityY = -(baseVelocity + (float)random.NextDouble() * 5f + 5f);
+        
         var particle = new Particle
         {
             Position = new SKPoint(spreadX, height),
             Velocity = new SKPoint(
                 (float)(random.NextDouble() - 0.5) * 5,
-                -(float)(random.NextDouble() * 10 + 5 + intensity)
+                velocityY
             ),
             Color = color,
             Lifetime = (float)(random.NextDouble() * 0.5 + 0.25),
