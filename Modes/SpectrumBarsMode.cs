@@ -10,7 +10,7 @@ public class SpectrumBarsMode : IVisualizerMode
     private static readonly SKColor Indigo = SKColor.Parse("#4B0082");
     private static readonly SKColor Violet = SKColor.Parse("#8A2BE2");
 
-    public string Name => "Spectrum Bars";
+    public string Name => "spectrum bars";
 
     public void Render(SKCanvas canvas, int width, int height, float[] spectrum)
     {

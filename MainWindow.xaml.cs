@@ -43,13 +43,28 @@ public partial class MainWindow : Window
     private Storyboard fadeStoryboard;
     private bool isClosing = false;
     private IVisualizerMode currentMode;
+    private List<IVisualizerMode> availableModes;
+    private bool isModeMenuVisible = false;
 
     public MainWindow()
     {
         InitializeComponent();
 
+        // Initialize available modes
+        availableModes = new List<IVisualizerMode>
+        {
+            new SpectrumBarsMode(),
+            new ParticleMode()
+        };
+
         // Initialize the default visualizer mode
-        currentMode = new ParticleMode();
+        currentMode = availableModes[0]; // SpectrumBarsMode
+
+        // Populate mode menu
+        foreach (var mode in availableModes)
+        {
+            ModeListBox.Items.Add(mode.Name);
+        }
 
         // Setup fade storyboard
         fadeStoryboard = new Storyboard();
@@ -77,6 +92,20 @@ public partial class MainWindow : Window
         timer.Start();
 
         this.Closing += MainWindow_Closing;
+        
+        // Hook up mode selection handler
+        ModeListBox.SelectionChanged += ModeListBox_SelectionChanged;
+    }
+
+    private void ModeListBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (ModeListBox.SelectedIndex >= 0 && ModeListBox.SelectedIndex < availableModes.Count)
+        {
+            currentMode = availableModes[ModeListBox.SelectedIndex];
+            // Hide the menu after selection
+            isModeMenuVisible = false;
+            ModeMenu.Visibility = Visibility.Collapsed;
+        }
     }
 
     private void ToggleFullscreen()
@@ -156,6 +185,12 @@ public partial class MainWindow : Window
         else if (e.Key == Key.Q || e.Key == Key.Escape)
         {
             this.Close();
+            e.Handled = true;
+        }
+        else if (e.Key == Key.OemTilde) // Backtick key
+        {
+            isModeMenuVisible = !isModeMenuVisible;
+            ModeMenu.Visibility = isModeMenuVisible ? Visibility.Visible : Visibility.Collapsed;
             e.Handled = true;
         }
     }

@@ -18,5 +18,39 @@
                    HorizontalAlignment="Center" 
                    VerticalAlignment="Center" 
                    Opacity="1" />
+        <Border x:Name="ModeMenu"
+                Background="#DD000000"
+                Padding="20"
+                CornerRadius="10"
+                HorizontalAlignment="Center"
+                VerticalAlignment="Center"
+                Visibility="Collapsed">
+            <StackPanel>
+                <TextBlock Text="Visualizer Modes"
+                           FontSize="24"
+                           FontWeight="Bold"
+                           Foreground="White"
+                           Margin="0,0,0,15"
+                           HorizontalAlignment="Center" />
+                <ListBox x:Name="ModeListBox"
+                         Background="Transparent"
+                         BorderThickness="0"
+                         Foreground="White"
+                         FontSize="18"
+                         MinWidth="300">
+                    <ListBox.ItemContainerStyle>
+                        <Style TargetType="ListBoxItem">
+                            <Setter Property="Foreground" Value="White" />
+                            <Setter Property="Padding" Value="10,5" />
+                            <Style.Triggers>
+                                <Trigger Property="IsMouseOver" Value="True">
+                                    <Setter Property="Background" Value="#33FFFFFF" />
+                                </Trigger>
+                            </Style.Triggers>
+                        </Style>
+                    </ListBox.ItemContainerStyle>
+                </ListBox>
+            </StackPanel>
+        </Border>
     </Grid>
 </Window>

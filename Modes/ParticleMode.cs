@@ -22,7 +22,7 @@ public class ParticleMode : IVisualizerMode
     private readonly Random random = new Random();
     private int frameCount = 0;
 
-    public string Name => "Particles";
+    public string Name => "particles";
 
     public void Render(SKCanvas canvas, int width, int height, float[] spectrum)
     {
