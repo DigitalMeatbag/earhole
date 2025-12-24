@@ -19,9 +19,8 @@ obj/
 .DS_Store
 Thumbs.db
 
-# Build outputs (but allow ZIP files in publish/)
-publish/*
-!publish/*.zip
+# Build outputs
+publish/
 
 # Visual Studio
 .vs/
