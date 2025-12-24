@@ -23,6 +23,8 @@ public class FairiesMode : IVisualizerMode
     private readonly Random random = new Random();
     private int width, height;
     private bool initialized = false;
+    private float scatterTimer = 0f;
+    private const float scatterDuration = 1f; // 1 second scatter time
 
     // ROYGBIV colors
     private readonly SKColor[] fairyColors = new[]
@@ -58,6 +60,48 @@ public class FairiesMode : IVisualizerMode
             this.width = width;
             this.height = height;
             initialized = true;
+        }
+
+        // Handle beat detection - trigger scatter
+        if (isBeat && scatterTimer <= 0f)
+        {
+            scatterTimer = scatterDuration;
+            
+            // Apply immediate scatter impulse to each fairy
+            foreach (var fairy in fairies)
+            {
+                float centerX = width / 2f;
+                float centerY = height / 2f;
+                float dx = fairy.Position.X - centerX;
+                float dy = fairy.Position.Y - centerY;
+                
+                float dist = (float)Math.Sqrt(dx * dx + dy * dy);
+                if (dist > 0.1f)
+                {
+                    // Add impulse away from center
+                    fairy.Velocity = new SKPoint(
+                        fairy.Velocity.X + (dx / dist) * 8f,
+                        fairy.Velocity.Y + (dy / dist) * 8f
+                    );
+                }
+                else
+                {
+                    // Random direction if at center
+                    float angle = (float)(random.NextDouble() * Math.PI * 2);
+                    fairy.Velocity = new SKPoint(
+                        fairy.Velocity.X + (float)Math.Cos(angle) * 8f,
+                        fairy.Velocity.Y + (float)Math.Sin(angle) * 8f
+                    );
+                }
+            }
+        }
+
+        // Decay scatter timer
+        if (scatterTimer > 0f)
+        {
+            scatterTimer -= 0.016f; // Approximate frame time (60fps)
+            if (scatterTimer < 0f)
+                scatterTimer = 0f;
         }
 
         // Find active frequency ranges in the spectrum
@@ -129,10 +173,10 @@ public class FairiesMode : IVisualizerMode
             fairy.GlowIntensity = fairy.GlowIntensity * 0.8f + avgIntensity * 0.2f;
             
             // Update fairy movement (organic flying motion)
-            UpdateFairyMovement(fairy, width, height);
+            UpdateFairyMovement(fairy, width, height, scatterTimer > 0f);
             
             // Render the fairy
-            DrawFairy(canvas, fairy);
+            DrawFairy(canvas, fairy, width, height);
         }
     }
 
@@ -164,7 +208,7 @@ public class FairiesMode : IVisualizerMode
         }
     }
 
-    private void UpdateFairyMovement(Fairy fairy, int width, int height)
+    private void UpdateFairyMovement(Fairy fairy, int width, int height, bool isScattering)
     {
         // Calculate current speed to influence direction changes
         float currentSpeed = (float)Math.Sqrt(fairy.Velocity.X * fairy.Velocity.X + fairy.Velocity.Y * fairy.Velocity.Y);
@@ -223,6 +267,12 @@ public class FairiesMode : IVisualizerMode
         float speedMultiplier = 1.0f + Math.Clamp(glowChange * 25f, -0.5f, 1.25f);
         float maxSpeed = baseMaxSpeed * speedMultiplier;
         
+        // During scatter, allow higher speeds temporarily
+        if (isScattering)
+        {
+            maxSpeed = Math.Max(maxSpeed, 10f);
+        }
+        
         // Limit speed
         float speed = (float)Math.Sqrt(fairy.Velocity.X * fairy.Velocity.X + fairy.Velocity.Y * fairy.Velocity.Y);
         if (speed > maxSpeed)
@@ -246,11 +296,16 @@ public class FairiesMode : IVisualizerMode
         if (fairy.Position.Y > height) fairy.Position.Y = 0;
     }
 
-    private void DrawFairy(SKCanvas canvas, Fairy fairy)
+    private void DrawFairy(SKCanvas canvas, Fairy fairy, int width, int height)
     {
         // Calculate glow size based on intensity (minimum glow even when quiet)
         float baseSize = 8f;
         float glowSize = baseSize + (fairy.GlowIntensity * 30f);
+        
+        // Limit fairy size to 15% of the smaller screen dimension
+        float maxDimension = Math.Min(width, height);
+        float maxSize = maxDimension * 0.15f;
+        glowSize = Math.Min(glowSize, maxSize);
         
         // Draw multiple circles with decreasing alpha for glow effect
         int glowLayers = 5;
