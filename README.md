@@ -89,6 +89,8 @@ earhole automatically detects and displays track information from media players 
 	- ![The Wave](assets/earhole-the-wave.png)
 - **💥 Cold War**: Interactive geopolitical visualizer displaying an authentic 1980s world map with Soviet (red) and Western (blue) alliance territories. Audio spectrum samples trigger territorial events: left channel dominance creates small defensive explosions, while right channel dominance launches arcing missiles toward opposing territories with large impact explosions. Beat detection doubles explosion brightness for dramatic sync with the music's rhythm.
 	- ![Cold War](assets/earhole-cold-war.png)
+- **🕺 The Dance**: Concert crowd simulation with 40-80 animated stick figure dancers positioned in perspective depth. Features include: independent limb movement and physical variation per dancer (height, proportions), randomized animation timing for natural crowd motion, intensity-triggered lighter raising (5% probability, 30s cooldown, 4-6s duration with random flame colors), 12 audio-reactive lasers (6 stage lasers sweep outward, 6 ceiling lasers sweep inward with color cycling), beat-synchronized crowd jump ripple that propagates from stage to back, and subtle screen flash effects on beats. Each dancer responds to different frequency bands creating a dynamic concert atmosphere.
+	- ![The Dance](assets/earhole-the-dance.png)
 
 All modes update in real time; use the mode menu (`) to switch on the fly. When you select shuffle mode, it resumes cycling; when you select a specific mode, it stays on that mode until you change it.
 
