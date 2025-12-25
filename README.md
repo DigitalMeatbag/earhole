@@ -86,6 +86,8 @@ earhole automatically detects and displays track information from media players 
 	- ![Fairies](assets/earhole-fairies.png)
 - **🌊 The Wave**: Dual-channel waveform visualizer with stereo separation; right channel (red) displays upward, left channel (blue) displays downward. Beat detection triggers color change to white and spawns colorful glowing particles at random positions.
 	- ![The Wave](assets/earhole-the-wave.png)
+- **💥 Cold War**: Interactive geopolitical visualizer displaying an authentic 1980s world map with Soviet (red) and Western (blue) alliance territories. Audio spectrum samples trigger territorial events: left channel dominance creates small defensive explosions, while right channel dominance launches arcing missiles toward opposing territories with large impact explosions. Beat detection doubles explosion brightness for dramatic sync with the music's rhythm.
+	- ![Cold War](assets/earhole-cold-war.png)
 
 All modes update in real time; use the mode menu (`) to switch on the fly. When you select shuffle mode, it resumes cycling; when you select a specific mode, it stays on that mode until you change it.
 

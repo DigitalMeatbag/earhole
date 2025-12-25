@@ -78,7 +78,8 @@ public partial class MainWindow : Window
             new CircleMode(),
             new TwoCirclesMode(),
             new FairiesMode(),
-            new WaveMode()
+            new WaveMode(),
+            new ColdWarMode()
         };
 
         // Initialize shuffle mode with all available modes
