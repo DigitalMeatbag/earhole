@@ -25,7 +25,8 @@ This is a C# WPF application that captures live audio data from the system loopb
 
 - **NAudio**: For WASAPI loopback audio capture
 - **MathNet.Numerics**: For FFT (Fast Fourier Transform) calculations
-- **SkiaSharp**: For high-performance 2D graphics rendering
+- **SkiaSharp.Views.WPF**: For high-performance 2D graphics rendering in WPF
+- **SkiaSharp.Svg & Svg.Skia**: For SVG rendering support (used in Cold War mode)
 
 ## How to Run
 
