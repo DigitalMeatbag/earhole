@@ -10,7 +10,35 @@ public class DanceMode : IVisualizerMode
     public string Name => "the dance";
     public string Emoji => "🕺";
 
-    // Animation state
+    private class Dancer
+    {
+        public float X { get; set; }
+        public float Y { get; set; }
+        public float Scale { get; set; }
+        public SKColor LighterColor { get; set; }
+        public bool IsLighterUp { get; set; }
+        public DateTime LastLighterUpTime { get; set; }
+        public double LighterMinDuration { get; set; }
+        
+        // Variation properties for unique animation per dancer
+        public float PhaseOffset { get; set; }      // Time offset for out-of-sync animation
+        public float AnimationSpeed { get; set; }   // Speed multiplier (0.8-1.2)
+        public float MovementScale { get; set; }    // Movement amplitude multiplier (0.7-1.3)
+        
+        // Per-dancer limb angles for independent movement
+        public float LeftLegAngle { get; set; }
+        public float RightLegAngle { get; set; }
+        public float LeftArmAngle { get; set; }
+        public float RightArmAngle { get; set; }
+        public float LeftLegTarget { get; set; }
+        public float RightLegTarget { get; set; }
+    }
+
+    // Crowd of dancers
+    private List<Dancer> dancers = new List<Dancer>();
+    private bool initialized = false;
+
+    // Animation state (shared by all dancers)
     private float legAngleLeft = 0f;
     private float legAngleRight = 0f;
     private float armAngleLeft = 0f;
@@ -18,12 +46,10 @@ public class DanceMode : IVisualizerMode
     private float torsoRotation = 0f;
     private float headBob = 0f;
     private float beatIntensity = 0f;
+    private float highEnergy = 0f;
 
-    // Lighter state
-    private bool isLighterUp = false;
+    // Global lighter state
     private float overallIntensity = 0f;
-    private DateTime lastLighterUpTime = DateTime.MinValue;
-    private double currentLighterMinDuration = 0;
     private Random random = new Random();
     private const float LIGHTER_THRESHOLD_UP = 250f; // Threshold to raise lighter
     private const float LIGHTER_THRESHOLD_DOWN = 220f; // Threshold to lower lighter (hysteresis)
@@ -41,95 +67,165 @@ public class DanceMode : IVisualizerMode
     {
         canvas.Clear(SKColors.Black);
 
+        // Initialize dancers on first render
+        if (!initialized)
+        {
+            InitializeDancers(width, height);
+            initialized = true;
+        }
+
         // Calculate frequency bands
         float bassEnergy = GetBandEnergy(leftSpectrum, rightSpectrum, 0, 10); // 0-430 Hz
         float midEnergy = GetBandEnergy(leftSpectrum, rightSpectrum, 10, 40); // 430-1700 Hz
-        float highEnergy = GetBandEnergy(leftSpectrum, rightSpectrum, 40, 100); // 1700-4300 Hz
+        highEnergy = GetBandEnergy(leftSpectrum, rightSpectrum, 40, 100); // 1700-4300 Hz
 
         // Calculate overall intensity with smoothing
         float instantIntensity = bassEnergy + midEnergy + highEnergy;
         overallIntensity += (instantIntensity - overallIntensity) * INTENSITY_SMOOTHING;
 
-        // Hysteresis for lighter state (prevents flickering)
-        // Can only raise lighter once every 30 seconds, and only 5% chance when conditions are met
-        if (!isLighterUp && overallIntensity > LIGHTER_THRESHOLD_UP)
+        // Update lighter state for each dancer
+        foreach (var dancer in dancers)
         {
-            double secondsSinceLastRaise = (DateTime.Now - lastLighterUpTime).TotalSeconds;
-            if (secondsSinceLastRaise >= LIGHTER_COOLDOWN_SECONDS)
+            // Can only raise lighter once every 30 seconds, and only very small chance when conditions are met
+            if (!dancer.IsLighterUp && overallIntensity > LIGHTER_THRESHOLD_UP)
             {
-                // 5% chance to actually raise the lighter
-                if (random.NextDouble() < 0.05)
+                double secondsSinceLastRaise = (DateTime.Now - dancer.LastLighterUpTime).TotalSeconds;
+                if (secondsSinceLastRaise >= LIGHTER_COOLDOWN_SECONDS)
                 {
-                    isLighterUp = true;
-                    lastLighterUpTime = DateTime.Now;
-                    // Set random minimum duration between 4 and 6 seconds
-                    currentLighterMinDuration = 4.0 + random.NextDouble() * 2.0; // 4.0 to 6.0 seconds
+                    // Scale probability inversely with dancer count to maintain consistent overall rate
+                    // Target: ~1 lighter per second across entire crowd when intensity sustained
+                    // At 60fps: 0.0167 / dancerCount per frame = 1.0 / dancerCount per second
+                    double probability = 0.0167 / dancers.Count;
+                    if (random.NextDouble() < probability)
+                    {
+                        dancer.IsLighterUp = true;
+                        dancer.LastLighterUpTime = DateTime.Now;
+                        // Set random minimum duration between 4 and 6 seconds
+                        dancer.LighterMinDuration = 4.0 + random.NextDouble() * 2.0;
+                        // Generate random flame color for this dancer
+                        dancer.LighterColor = new SKColor(
+                            (byte)random.Next(256),
+                            (byte)random.Next(256),
+                            (byte)random.Next(256)
+                        );
+                    }
+                }
+            }
+            else if (dancer.IsLighterUp && overallIntensity < LIGHTER_THRESHOLD_DOWN)
+            {
+                // Only lower if minimum duration has elapsed
+                double secondsSinceLighterUp = (DateTime.Now - dancer.LastLighterUpTime).TotalSeconds;
+                if (secondsSinceLighterUp >= dancer.LighterMinDuration)
+                {
+                    dancer.IsLighterUp = false;
                 }
             }
         }
-        else if (isLighterUp && overallIntensity < LIGHTER_THRESHOLD_DOWN)
-        {
-            // Only lower if minimum duration has elapsed
-            double secondsSinceLighterUp = (DateTime.Now - lastLighterUpTime).TotalSeconds;
-            if (secondsSinceLighterUp >= currentLighterMinDuration)
-            {
-                isLighterUp = false;
-            }
-        }
 
-        // Bass/beat drives leg movement
+        // Bass/beat drives leg movement - update each dancer independently
         if (isBeat)
         {
-            // Alternate legs on each beat (constrained angles)
-            if (legTargetLeft < 0)
-            {
-                legTargetLeft = Math.Min(35f, 25f + bassEnergy * 10f);
-                legTargetRight = Math.Max(-30f, -20f - bassEnergy * 8f);
-            }
-            else
-            {
-                legTargetLeft = Math.Max(-30f, -20f - bassEnergy * 8f);
-                legTargetRight = Math.Min(35f, 25f + bassEnergy * 10f);
-            }
             beatIntensity = 1f;
+            // Each dancer gets independent leg targets
+            foreach (var dancer in dancers)
+            {
+                // Random chance to step with each leg independently
+                if (random.NextDouble() < 0.6) // 60% chance to step with left
+                {
+                    dancer.LeftLegTarget = (random.NextDouble() < 0.5 ? 1 : -1) * 
+                        Math.Min(35f, 20f + bassEnergy * 8f) * dancer.MovementScale;
+                }
+                if (random.NextDouble() < 0.6) // 60% chance to step with right
+                {
+                    dancer.RightLegTarget = (random.NextDouble() < 0.5 ? 1 : -1) * 
+                        Math.Min(35f, 20f + bassEnergy * 8f) * dancer.MovementScale;
+                }
+            }
         }
         else
         {
-            // Return to neutral gradually
-            legTargetLeft *= 0.95f;
-            legTargetRight *= 0.95f;
             beatIntensity *= 0.9f;
         }
 
-        // Smooth leg movement
-        legAngleLeft += (legTargetLeft - legAngleLeft) * LEG_SMOOTHING;
-        legAngleRight += (legTargetRight - legAngleRight) * LEG_SMOOTHING;
+        // Smooth leg movement for each dancer
+        foreach (var dancer in dancers)
+        {
+            // Return to neutral gradually
+            dancer.LeftLegTarget *= 0.95f;
+            dancer.RightLegTarget *= 0.95f;
+            
+            // Smooth towards target
+            dancer.LeftLegAngle += (dancer.LeftLegTarget - dancer.LeftLegAngle) * LEG_SMOOTHING;
+            dancer.RightLegAngle += (dancer.RightLegTarget - dancer.RightLegAngle) * LEG_SMOOTHING;
+            
+            // Enforce minimum stance width - legs must maintain separation
+            // Left leg should be negative (to the left), right leg positive (to the right)
+            if (dancer.LeftLegAngle > -10f)
+                dancer.LeftLegAngle = -10f;
+            if (dancer.RightLegAngle < 10f)
+                dancer.RightLegAngle = 10f;
+        }
 
         // Mid frequencies drive arm movement (constrained)
-        // Right arm holds lighter when intensity is high
-        if (isLighterUp)
-        {
-            armAngleRight = 180f; // Arm raised straight up for lighter (180 degrees points upward in this coordinate system)
-            armAngleLeft = (float)Math.Sin(DateTime.Now.Ticks / 2000000.0) * Math.Min(40f, 20f + midEnergy * 20f);
-        }
-        else
-        {
-            armAngleLeft = (float)Math.Sin(DateTime.Now.Ticks / 2000000.0) * Math.Min(40f, 20f + midEnergy * 20f);
-            armAngleRight = (float)Math.Sin(DateTime.Now.Ticks / 2000000.0 + Math.PI) * Math.Min(40f, 20f + midEnergy * 20f);
-        }
+        // (Arm angles controlled per-dancer in DrawDancer method now)
 
         // High frequencies drive torso and head (constrained)
         float targetTorso = (float)Math.Sin(DateTime.Now.Ticks / 3000000.0) * Math.Min(10f, highEnergy * 8f);
         torsoRotation += (targetTorso - torsoRotation) * TORSO_SMOOTHING;
         headBob = (float)Math.Sin(DateTime.Now.Ticks / 1500000.0) * Math.Min(8f, 3f + highEnergy * 5f);
 
-        // Scale figure to fit screen
-        float scale = Math.Min(width, height) / 600f;
-        float centerX = width / 2f;
-        float baseY = height * 0.75f; // Position feet at 75% down the screen
+        // Draw each dancer
+        foreach (var dancer in dancers)
+        {
+            DrawDancer(canvas, dancer, width, height);
+        }
+    }
 
+    private void InitializeDancers(int width, int height)
+    {
+        int dancerCount = random.Next(20, 41); // 20 to 40 dancers
+        
+        for (int i = 0; i < dancerCount; i++)
+        {
+            // Random depth (Z-axis simulation) - closer dancers are larger
+            float depth = 0.3f + (float)random.NextDouble() * 0.7f; // 0.3 to 1.0
+            
+            dancers.Add(new Dancer
+            {
+                X = (float)(random.NextDouble() * width),
+                Y = height * (0.5f + depth * 0.3f), // Further dancers higher on screen
+                Scale = depth, // Closer = larger
+                LighterColor = SKColors.Yellow,
+                IsLighterUp = false,
+                LastLighterUpTime = DateTime.MinValue,
+                LighterMinDuration = 0,
+                
+                // Random variation for unique animation
+                PhaseOffset = (float)(random.NextDouble() * Math.PI * 2), // 0 to 2π
+                AnimationSpeed = 0.8f + (float)random.NextDouble() * 0.4f, // 0.8 to 1.2
+                MovementScale = 0.7f + (float)random.NextDouble() * 0.6f,   // 0.7 to 1.3
+                
+                // Initialize limb angles with minimum stance width
+                LeftLegAngle = -10f,  // Left leg starts at -10° (to the left)
+                RightLegAngle = 10f,  // Right leg starts at 10° (to the right)
+                LeftArmAngle = 0f,
+                RightArmAngle = 0f,
+                LeftLegTarget = -10f,
+                RightLegTarget = 10f
+            });
+        }
+        
+        // Sort by depth so further dancers are drawn first (painter's algorithm)
+        dancers = dancers.OrderBy(d => d.Scale).ToList();
+    }
+
+    private void DrawDancer(SKCanvas canvas, Dancer dancer, int width, int height)
+    {
         canvas.Save();
-        canvas.Translate(centerX, baseY);
+        canvas.Translate(dancer.X, dancer.Y);
+        
+        // Scale based on depth
+        float scale = (Math.Min(width, height) / 600f) * dancer.Scale;
         canvas.Scale(scale, scale);
 
         // White paint for stick figure
@@ -149,30 +245,37 @@ public class DanceMode : IVisualizerMode
             paint.Color = SKColors.White.WithAlpha((byte)(200 + beatIntensity * 55));
         }
 
-        // Draw legs (connected to hip at 0, 0)
-        DrawLeg(canvas, paint, 0, 0, legAngleLeft, 70); // Left leg
-        DrawLeg(canvas, paint, 0, 0, legAngleRight, 70); // Right leg
+        // Draw legs (connected to hip at 0, 0) - use per-dancer leg angles
+        DrawLeg(canvas, paint, 0, 0, dancer.LeftLegAngle, 70); // Left leg
+        DrawLeg(canvas, paint, 0, 0, dancer.RightLegAngle, 70); // Right leg
 
-        // Draw torso with rotation
+        // Draw torso with rotation - apply dancer variation
         canvas.Save();
-        canvas.RotateDegrees(torsoRotation);
+        canvas.RotateDegrees(torsoRotation * dancer.MovementScale);
         
         // Hip to shoulder
         canvas.DrawLine(0, 0, 0, -120, paint);
         
+        // Calculate per-dancer arm angles with unique phase and speed - INDEPENDENT movement
+        // Left arm uses one frequency, right arm uses different frequency for independent motion
+        float dancerArmLeft = (float)Math.Sin((DateTime.Now.Ticks / 2000000.0) * dancer.AnimationSpeed + dancer.PhaseOffset) * 40f * dancer.MovementScale;
+        float dancerArmRight = dancer.IsLighterUp ? 180f : 
+            (float)Math.Sin((DateTime.Now.Ticks / 1800000.0) * dancer.AnimationSpeed + dancer.PhaseOffset + 1.3) * 35f * dancer.MovementScale; // Different frequency and amplitude
+        
         // Draw arms from shoulders
-        DrawArm(canvas, paint, 0, -110, armAngleLeft, 60, true); // Left arm
-        DrawArm(canvas, paint, 0, -110, armAngleRight, 60, false); // Right arm
+        DrawArm(canvas, paint, 0, -110, dancerArmLeft, 60, true); // Left arm
+        DrawArm(canvas, paint, 0, -110, dancerArmRight, 60, false); // Right arm
 
-        // Draw lighter if raised
-        if (isLighterUp)
+        // Draw lighter if raised for this dancer
+        if (dancer.IsLighterUp)
         {
-            DrawLighter(canvas, paint, 0, -110, armAngleRight, 60);
+            DrawLighter(canvas, paint, 0, -110, 180f, 60, dancer.LighterColor);
         }
 
-        // Draw head with bob (constrained to stay attached to neck)
+        // Draw head with bob (constrained to stay attached to neck) - apply dancer variation
         float neckY = -120;
-        float headCenterY = neckY - 15 - Math.Abs(headBob); // Head stays above neck, bobs vertically
+        float dancerHeadBob = (float)Math.Sin((DateTime.Now.Ticks / 1500000.0) * dancer.AnimationSpeed + dancer.PhaseOffset) * Math.Min(8f, 3f + highEnergy * 5f) * dancer.MovementScale;
+        float headCenterY = neckY - 15 - Math.Abs(dancerHeadBob); // Head stays above neck, bobs vertically
         canvas.DrawCircle(0, headCenterY, 20, paint);
         
         canvas.Restore();
@@ -214,7 +317,8 @@ public class DanceMode : IVisualizerMode
         canvas.DrawRect(x, y + 20, barWidth, barHeight, barBgPaint);
         
         // Bar fill (color changes based on threshold)
-        var barColor = isLighterUp ? SKColors.Orange : (overallIntensity > LIGHTER_THRESHOLD_DOWN ? SKColors.Yellow : SKColors.Green);
+        bool anyLighterUp = dancers.Any(d => d.IsLighterUp);
+        var barColor = anyLighterUp ? SKColors.Orange : (overallIntensity > LIGHTER_THRESHOLD_DOWN ? SKColors.Yellow : SKColors.Green);
         using var barFillPaint = new SKPaint { Color = barColor, Style = SKPaintStyle.Fill };
         canvas.DrawRect(x, y + 20, barFillWidth, barHeight, barFillPaint);
 
@@ -240,7 +344,7 @@ public class DanceMode : IVisualizerMode
 
         // Text labels
         canvas.DrawText($"Intensity: {overallIntensity:F2}", x, y + 15, textPaint);
-        canvas.DrawText($"Lighter: {(isLighterUp ? "UP" : "down")}", x, y + 70, textPaint);
+        canvas.DrawText($"Lighters Up: {dancers.Count(d => d.IsLighterUp)}/{dancers.Count}", x, y + 70, textPaint);
         canvas.DrawText($"Up: {LIGHTER_THRESHOLD_UP:F1} Down: {LIGHTER_THRESHOLD_DOWN:F1}", x + 150, y + 70, textPaint);
     }
 
@@ -248,6 +352,13 @@ public class DanceMode : IVisualizerMode
     {
         // Clamp angle to reasonable range to keep legs attached
         angle = Math.Clamp(angle, -45f, 45f);
+        
+        // Add minimum offset from center to ensure legs never overlap
+        // Legs should always have at least 10° separation from center
+        if (angle >= 0 && angle < 10f)
+            angle = 10f; // Right leg minimum
+        else if (angle < 0 && angle > -10f)
+            angle = -10f; // Left leg minimum
         
         float rad = angle * (float)Math.PI / 180f;
         float upperLength = length * 0.55f;
@@ -306,7 +417,7 @@ public class DanceMode : IVisualizerMode
         canvas.DrawLine(elbowX, elbowY, handX, handY, paint);
     }
 
-    private void DrawLighter(SKCanvas canvas, SKPaint paint, float startX, float startY, float angle, float armLength)
+    private void DrawLighter(SKCanvas canvas, SKPaint paint, float startX, float startY, float angle, float armLength, SKColor flameColor)
     {
         // Use exact same calculation as DrawArm to ensure lighter is at hand position
         angle = Math.Clamp(angle, -180f, 180f);
@@ -344,41 +455,67 @@ public class DanceMode : IVisualizerMode
         var lighterRect = new SKRect(handX - 3, handY - 8, handX + 3, handY);
         canvas.DrawRect(lighterRect, lighterPaint);
 
-        // Draw flame (flickering effect)
+        // Draw flame (flickering effect) - 300% more intense (4x total)
         float flicker = (float)Math.Sin(DateTime.Now.Ticks / 500000.0) * 2f;
-        float flameHeight = 8f + flicker;
+        float flameHeight = (8f + flicker) * 4f; // 4x height for intensity
+        float flameWidth = 8f; // 4x width for intensity
         
+        // Create larger flame path
         using var flamePath = new SKPath();
         flamePath.MoveTo(handX, handY - 8);
-        flamePath.LineTo(handX - 2, handY - 8 - flameHeight * 0.5f);
+        flamePath.LineTo(handX - flameWidth, handY - 8 - flameHeight * 0.5f);
         flamePath.LineTo(handX, handY - 8 - flameHeight);
-        flamePath.LineTo(handX + 2, handY - 8 - flameHeight * 0.5f);
+        flamePath.LineTo(handX + flameWidth, handY - 8 - flameHeight * 0.5f);
         flamePath.Close();
         
-        // Outer orange glow
+        // Outermost glow layer (very soft)
+        for (int i = 3; i >= 1; i--)
+        {
+            float glowSize = i * 8f;
+            byte glowAlpha = (byte)(40 / i);
+            
+            using var outerGlowPaint = new SKPaint
+            {
+                Color = flameColor.WithAlpha(glowAlpha),
+                Style = SKPaintStyle.Fill,
+                IsAntialias = true,
+                MaskFilter = SKMaskFilter.CreateBlur(SKBlurStyle.Normal, glowSize)
+            };
+            canvas.DrawPath(flamePath, outerGlowPaint);
+        }
+        
+        // Outer flame (random color with alpha)
         using var glowPaint = new SKPaint
         {
-            Color = SKColors.Orange.WithAlpha(150),
+            Color = flameColor.WithAlpha(200),
             Style = SKPaintStyle.Fill,
             IsAntialias = true
         };
         canvas.DrawPath(flamePath, glowPaint);
         
-        // Inner yellow flame
+        // Inner bright core (full intensity)
         using var flamePaint = new SKPaint
         {
-            Color = SKColors.Yellow,
+            Color = flameColor,
+            IsAntialias = true
+        };
+        canvas.DrawPath(flamePath, glowPaint);
+        
+        // Inner bright core (full intensity)
+        using var innerFlamePaint = new SKPaint
+        {
+            Color = flameColor,
             Style = SKPaintStyle.Fill,
             IsAntialias = true
         };
         
         var innerFlamePath = new SKPath();
         innerFlamePath.MoveTo(handX, handY - 8);
-        innerFlamePath.LineTo(handX - 1, handY - 8 - flameHeight * 0.6f);
+        innerFlamePath.LineTo(handX - flameWidth * 0.5f, handY - 8 - flameHeight * 0.6f);
         innerFlamePath.LineTo(handX, handY - 8 - flameHeight * 0.8f);
-        innerFlamePath.LineTo(handX + 1, handY - 8 - flameHeight * 0.6f);
+        innerFlamePath.LineTo(handX + flameWidth * 0.5f, handY - 8 - flameHeight * 0.6f);
         innerFlamePath.Close();
-        canvas.DrawPath(innerFlamePath, flamePaint);
+        canvas.DrawPath(innerFlamePath, innerFlamePaint);
     }
 
     private float GetBandEnergy(float[] leftSpectrum, float[] rightSpectrum, int startBin, int endBin)
