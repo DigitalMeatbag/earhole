@@ -51,16 +51,20 @@ public class DanceMode : IVisualizerMode
         overallIntensity += (instantIntensity - overallIntensity) * INTENSITY_SMOOTHING;
 
         // Hysteresis for lighter state (prevents flickering)
-        // Can only raise lighter once every 30 seconds
+        // Can only raise lighter once every 30 seconds, and only 5% chance when conditions are met
         if (!isLighterUp && overallIntensity > LIGHTER_THRESHOLD_UP)
         {
             double secondsSinceLastRaise = (DateTime.Now - lastLighterUpTime).TotalSeconds;
             if (secondsSinceLastRaise >= LIGHTER_COOLDOWN_SECONDS)
             {
-                isLighterUp = true;
-                lastLighterUpTime = DateTime.Now;
-                // Set random minimum duration between 2 and 3 seconds
-                currentLighterMinDuration = 2.0 + random.NextDouble(); // 2.0 to 3.0 seconds
+                // 5% chance to actually raise the lighter
+                if (random.NextDouble() < 0.05)
+                {
+                    isLighterUp = true;
+                    lastLighterUpTime = DateTime.Now;
+                    // Set random minimum duration between 4 and 6 seconds
+                    currentLighterMinDuration = 4.0 + random.NextDouble() * 2.0; // 4.0 to 6.0 seconds
+                }
             }
         }
         else if (isLighterUp && overallIntensity < LIGHTER_THRESHOLD_DOWN)
@@ -174,9 +178,6 @@ public class DanceMode : IVisualizerMode
         canvas.Restore();
 
         canvas.Restore();
-
-        // DEBUG: Draw intensity indicator (temporary for testing)
-        DrawIntensityDebug(canvas, width, height);
     }
 
     private void DrawIntensityDebug(SKCanvas canvas, int width, int height)
