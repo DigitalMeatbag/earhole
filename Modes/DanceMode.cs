@@ -63,6 +63,16 @@ public class DanceMode : IVisualizerMode
     private const float INTENSITY_SMOOTHING = 0.15f;
     private const double LIGHTER_COOLDOWN_SECONDS = 30.0; // Minimum time between lighter raises
 
+    // Laser light state
+    private float[] laserAngles = new float[12]; // 12 laser beams
+    private float[] laserTargetAngles = new float[12]; // Target angles for smoothing
+    private SKColor[] laserColors = new SKColor[12];
+    private float[] laserIntensities = new float[12];
+    private float[] laserDepths = new float[12]; // 0.0 = back, 1.0 = front
+    private bool lasersInitialized = false;
+    private const float LASER_ANGLE_SMOOTHING = 0.12f;
+    private const float LASER_INTENSITY_SMOOTHING = 0.18f;
+
     // Smoothing for movements
     private float legTargetLeft = 0f;
     private float legTargetRight = 0f;
@@ -180,6 +190,90 @@ public class DanceMode : IVisualizerMode
         float targetTorso = (float)Math.Sin(DateTime.Now.Ticks / 3000000.0) * Math.Min(10f, highEnergy * 8f);
         torsoRotation += (targetTorso - torsoRotation) * TORSO_SMOOTHING;
         headBob = (float)Math.Sin(DateTime.Now.Ticks / 1500000.0) * Math.Min(8f, 3f + highEnergy * 5f);
+
+        // Initialize and update lasers
+        if (!lasersInitialized)
+        {
+            // Color palette for cycling
+            var colorPalette = new SKColor[]
+            {
+                new SKColor(255, 0, 0),      // Red
+                new SKColor(0, 100, 255),    // Blue
+                new SKColor(0, 255, 0),      // Green
+                new SKColor(0, 255, 255),    // Cyan
+                new SKColor(255, 0, 255),    // Magenta
+                new SKColor(255, 255, 0),    // Yellow
+                new SKColor(255, 128, 0),    // Orange
+                new SKColor(128, 0, 255)     // Purple
+            };
+            
+            for (int i = 0; i < laserAngles.Length; i++)
+            {
+                laserColors[i] = colorPalette[i % colorPalette.Length];
+                laserIntensities[i] = 0f;
+                
+                if (i < 6)
+                {
+                    // First 6: Stage lasers (bottom) - intense, sweep outward
+                    laserAngles[i] = -45f + i * 18f; // Spread from -45° to +45°
+                    laserTargetAngles[i] = laserAngles[i];
+                    laserDepths[i] = 1.0f; // Full intensity
+                }
+                else
+                {
+                    // Last 6: Ceiling lasers (top corners) - fainter, sweep inward toward center
+                    laserAngles[i] = (i % 2 == 0 ? -40f : 40f); // Start from sides
+                    laserTargetAngles[i] = laserAngles[i];
+                    laserDepths[i] = 0.4f + (float)random.NextDouble() * 0.2f; // Fainter (0.4-0.6)
+                }
+            }
+            lasersInitialized = true;
+        }
+
+        // Update laser angles and intensities based on audio
+        for (int i = 0; i < laserAngles.Length; i++)
+        {
+            // Different lasers respond to different frequencies
+            float energy = i % 3 == 0 ? bassEnergy : (i % 3 == 1 ? midEnergy : highEnergy);
+            
+            if (i < 6)
+            {
+                // Stage lasers: sweep outward from center
+                float sweepSpeed = 0.4f + energy * 0.03f;
+                float centerAngle = -45f + i * 18f;
+                float sweepAmount = (float)Math.Sin(DateTime.Now.Ticks / (2000000.0 + i * 400000.0)) * 25f * sweepSpeed;
+                // Positive sweep for right side, negative for left
+                float sweepDirection = (i >= 3 ? 1f : -1f);
+                laserTargetAngles[i] = centerAngle + sweepAmount * sweepDirection;
+                
+                // Stage lasers intensity directly correlates with energy
+                float targetIntensity = Math.Min(1f, 0.3f + energy / 100f); // Base 30% + energy boost
+                if (isBeat && i % 2 == 0) targetIntensity = 1f; // Full blast on beat
+                laserIntensities[i] += (targetIntensity - laserIntensities[i]) * LASER_INTENSITY_SMOOTHING;
+            }
+            else
+            {
+                // Ceiling lasers: sweep inward toward center
+                float sweepSpeed = 0.3f + energy * 0.02f;
+                float sideAngle = (i % 2 == 0 ? -50f : 50f); // Start from sides
+                float sweepAmount = (float)Math.Sin(DateTime.Now.Ticks / (2500000.0 + i * 600000.0)) * 40f * sweepSpeed;
+                // Sweep toward center (opposite direction from side)
+                float sweepDirection = (i % 2 == 0 ? 1f : -1f);
+                laserTargetAngles[i] = sideAngle + sweepAmount * sweepDirection;
+                
+                // Ceiling lasers intensity correlates with energy but more subtle
+                float baseIntensity = 0.15f + energy / 250f; // Lower base, subtler response
+                float targetIntensity = Math.Min(0.6f, baseIntensity) * laserDepths[i];
+                if (isBeat && i % 3 == 0) targetIntensity = 0.5f * laserDepths[i]; // Gentle pulse
+                laserIntensities[i] += (targetIntensity - laserIntensities[i]) * (LASER_INTENSITY_SMOOTHING * 0.8f);
+            }
+            
+            // Smooth angle transitions
+            laserAngles[i] += (laserTargetAngles[i] - laserAngles[i]) * LASER_ANGLE_SMOOTHING;
+        }
+
+        // Draw lasers before dancers (so dancers appear in front)
+        DrawLasers(canvas, width, height);
 
         // Draw each dancer
         foreach (var dancer in dancers)
@@ -589,5 +683,89 @@ public class DanceMode : IVisualizerMode
         }
 
         return count > 0 ? (energy / count) * 2f : 0f; // Average and scale
+    }
+
+    private void DrawLasers(SKCanvas canvas, int width, int height)
+    {
+        for (int i = 0; i < laserAngles.Length; i++)
+        {
+            if (laserIntensities[i] < 0.05f) continue; // Skip very dim lasers
+            
+            float depth = laserDepths[i];
+            float startX, startY;
+            
+            if (i < 6)
+            {
+                // Stage lasers: emanate from bottom (stage), spread across width
+                startX = width * (0.15f + i * 0.12f); // Spread from 15% to 75% of width
+                startY = height; // Bottom of screen (stage)
+            }
+            else
+            {
+                // Ceiling lasers: emanate from top corners
+                int ceilingIndex = i - 6;
+                // Alternate between left and right corners
+                if (ceilingIndex % 2 == 0)
+                {
+                    startX = width * 0.1f; // Left corner
+                }
+                else
+                {
+                    startX = width * 0.9f; // Right corner
+                }
+                startY = height * 0.05f; // Near top (ceiling)
+            }
+            
+            // Calculate end position based on angle
+            float angleRad = (laserAngles[i] - 90f) * (float)Math.PI / 180f; // -90 so 0° points up
+            float beamLength = height * 1.8f; // Long beams
+            float endX = startX + (float)Math.Cos(angleRad) * beamLength;
+            float endY = startY + (float)Math.Sin(angleRad) * beamLength;
+            
+            // Create gradient for laser beam (bright at source, fades out)
+            byte alpha = (byte)(laserIntensities[i] * 180);
+            var colors = new SKColor[]
+            {
+                laserColors[i].WithAlpha(alpha),
+                laserColors[i].WithAlpha((byte)(alpha * 0.7f)),
+                laserColors[i].WithAlpha(0)
+            };
+            var positions = new float[] { 0f, 0.5f, 1f };
+            
+            using var shader = SKShader.CreateLinearGradient(
+                new SKPoint(startX, startY),
+                new SKPoint(endX, endY),
+                colors,
+                positions,
+                SKShaderTileMode.Clamp
+            );
+            
+            // Draw main beam - thinner for back lasers
+            float beamWidth = (4f + laserIntensities[i] * 6f) * depth;
+            using var beamPaint = new SKPaint
+            {
+                Shader = shader,
+                StrokeWidth = beamWidth,
+                Style = SKPaintStyle.Stroke,
+                IsAntialias = true,
+                StrokeCap = SKStrokeCap.Round,
+                BlendMode = SKBlendMode.Plus // Additive blending for glow effect
+            };
+            canvas.DrawLine(startX, startY, endX, endY, beamPaint);
+            
+            // Draw outer glow - smaller for back lasers
+            float glowWidth = (12f + laserIntensities[i] * 15f) * depth;
+            using var glowPaint = new SKPaint
+            {
+                Color = laserColors[i].WithAlpha((byte)(alpha * 0.3f)),
+                StrokeWidth = glowWidth,
+                Style = SKPaintStyle.Stroke,
+                IsAntialias = true,
+                StrokeCap = SKStrokeCap.Round,
+                MaskFilter = SKMaskFilter.CreateBlur(SKBlurStyle.Normal, 8f * depth),
+                BlendMode = SKBlendMode.Plus
+            };
+            canvas.DrawLine(startX, startY, endX, endY, glowPaint);
+        }
     }
 }
