@@ -44,6 +44,8 @@ public class DanceMode : IVisualizerMode
     // Crowd of dancers
     private List<Dancer> dancers = new List<Dancer>();
     private bool initialized = false;
+    private int lastWidth = 0;
+    private int lastHeight = 0;
 
     // Animation state (shared by all dancers)
     private float legAngleLeft = 0f;
@@ -93,11 +95,13 @@ public class DanceMode : IVisualizerMode
     {
         canvas.Clear(SKColors.Black);
 
-        // Initialize dancers on first render
-        if (!initialized)
+        // Initialize dancers on first render or when window size changes
+        if (!initialized || width != lastWidth || height != lastHeight)
         {
             InitializeDancers(width, height);
             initialized = true;
+            lastWidth = width;
+            lastHeight = height;
         }
 
         // Calculate frequency bands
@@ -325,6 +329,9 @@ public class DanceMode : IVisualizerMode
 
     private void InitializeDancers(int width, int height)
     {
+        // Clear existing dancers before reinitializing
+        dancers.Clear();
+        
         int dancerCount = random.Next(40, 81); // 40 to 80 dancers
         
         for (int i = 0; i < dancerCount; i++)
