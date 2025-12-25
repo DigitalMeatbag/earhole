@@ -67,11 +67,20 @@ public class DanceMode : IVisualizerMode
     private float[] laserAngles = new float[12]; // 12 laser beams
     private float[] laserTargetAngles = new float[12]; // Target angles for smoothing
     private SKColor[] laserColors = new SKColor[12];
+    private float[] laserHueOffsets = new float[12]; // Hue rotation offset for each laser
     private float[] laserIntensities = new float[12];
     private float[] laserDepths = new float[12]; // 0.0 = back, 1.0 = front
     private bool lasersInitialized = false;
     private const float LASER_ANGLE_SMOOTHING = 0.12f;
     private const float LASER_INTENSITY_SMOOTHING = 0.18f;
+
+    // Beat visual effects
+    private float crowdJumpHeight = 0f; // How much the crowd jumps up
+    private float screenFlashIntensity = 0f; // White flash on beats
+    private DateTime lastBeatTime = DateTime.MinValue; // When the last beat occurred
+    private const float CROWD_JUMP_DECAY = 0.85f;
+    private const float FLASH_DECAY = 0.75f;
+    private const float RIPPLE_SPEED = 2.5f; // How fast the jump ripple travels (depth units per second)
 
     // Smoothing for movements
     private float legTargetLeft = 0f;
@@ -99,6 +108,22 @@ public class DanceMode : IVisualizerMode
         // Calculate overall intensity with smoothing
         float instantIntensity = bassEnergy + midEnergy + highEnergy;
         overallIntensity += (instantIntensity - overallIntensity) * INTENSITY_SMOOTHING;
+
+        // Beat visual effects
+        if (isBeat)
+        {
+            // Trigger crowd jump ripple based on bass energy
+            crowdJumpHeight = Math.Min(30f, 15f + bassEnergy * 0.4f);
+            lastBeatTime = DateTime.Now;
+            // Trigger screen flash
+            screenFlashIntensity = Math.Min(0.25f, 0.1f + bassEnergy * 0.003f);
+        }
+        else
+        {
+            // Decay effects
+            crowdJumpHeight *= CROWD_JUMP_DECAY;
+            screenFlashIntensity *= FLASH_DECAY;
+        }
 
         // Update lighter state for each dancer
         foreach (var dancer in dancers)
@@ -211,6 +236,7 @@ public class DanceMode : IVisualizerMode
             {
                 laserColors[i] = colorPalette[i % colorPalette.Length];
                 laserIntensities[i] = 0f;
+                laserHueOffsets[i] = i * 30f; // Stagger starting hues (30° apart)
                 
                 if (i < 6)
                 {
@@ -235,6 +261,15 @@ public class DanceMode : IVisualizerMode
         {
             // Different lasers respond to different frequencies
             float energy = i % 3 == 0 ? bassEnergy : (i % 3 == 1 ? midEnergy : highEnergy);
+            
+            // Color cycling - speed varies with energy and depth
+            float cycleSpeed = i < 6 ? 30f : 20f; // Stage lasers cycle faster
+            cycleSpeed *= (1f + energy * 0.01f); // Speed up with energy
+            laserHueOffsets[i] += cycleSpeed * 0.016f; // Roughly 60fps
+            if (laserHueOffsets[i] >= 360f) laserHueOffsets[i] -= 360f;
+            
+            // Convert HSV to RGB for smooth color transitions
+            laserColors[i] = SKColor.FromHsv(laserHueOffsets[i], 100, 100);
             
             if (i < 6)
             {
@@ -279,6 +314,12 @@ public class DanceMode : IVisualizerMode
         foreach (var dancer in dancers)
         {
             DrawDancer(canvas, dancer, width, height);
+        }
+
+        // Draw beat flash effect on top of everything
+        if (screenFlashIntensity > 0.01f)
+        {
+            DrawBeatFlash(canvas, width, height);
         }
     }
 
@@ -371,7 +412,28 @@ public class DanceMode : IVisualizerMode
     private void DrawDancer(SKCanvas canvas, Dancer dancer, int width, int height)
     {
         canvas.Save();
-        canvas.Translate(dancer.X, dancer.Y);
+        
+        // Apply crowd jump ripple effect - wave propagates from stage (depth 1.0) to back (depth 0.3)
+        float timeSinceBeat = (float)(DateTime.Now - lastBeatTime).TotalSeconds;
+        float rippleProgress = timeSinceBeat * RIPPLE_SPEED; // How far the ripple has traveled (in depth units)
+        
+        // Calculate this dancer's position in the ripple wave
+        // Ripple starts at depth 1.0 (stage) and moves toward depth 0.3 (back)
+        float dancerRipplePosition = 1.0f - dancer.Scale; // 0 = at stage, 0.7 = at back
+        float rippleDistance = rippleProgress - dancerRipplePosition;
+        
+        // Jump offset based on how close the ripple is to this dancer
+        // Peak jump when ripple is at dancer's position, decays with distance
+        float jumpOffset = 0f;
+        if (rippleDistance > 0 && rippleDistance < 0.5f) // Ripple affects 0.5 depth units
+        {
+            // Smooth wave shape using sine
+            float wavePhase = rippleDistance / 0.5f * (float)Math.PI;
+            float waveIntensity = (float)Math.Sin(wavePhase);
+            jumpOffset = -crowdJumpHeight * dancer.Scale * waveIntensity;
+        }
+        
+        canvas.Translate(dancer.X, dancer.Y + jumpOffset);
         
         // Scale based on depth
         float scale = (Math.Min(width, height) / 600f) * dancer.Scale;
@@ -767,5 +829,40 @@ public class DanceMode : IVisualizerMode
             };
             canvas.DrawLine(startX, startY, endX, endY, glowPaint);
         }
+    }
+
+    private void DrawBeatFlash(SKCanvas canvas, int width, int height)
+    {
+        // Subtle white flash that fades from edges (vignette effect)
+        byte flashAlpha = (byte)(screenFlashIntensity * 255);
+        
+        // Create radial gradient from center (transparent) to edges (white flash)
+        var center = new SKPoint(width / 2f, height / 2f);
+        float maxRadius = (float)Math.Sqrt(width * width + height * height) / 2f;
+        
+        var colors = new SKColor[]
+        {
+            SKColors.White.WithAlpha(0),              // Transparent center
+            SKColors.White.WithAlpha((byte)(flashAlpha * 0.3f)),  // 30% at mid
+            SKColors.White.WithAlpha(flashAlpha)       // Full intensity at edges
+        };
+        var positions = new float[] { 0f, 0.6f, 1f };
+        
+        using var shader = SKShader.CreateRadialGradient(
+            center,
+            maxRadius,
+            colors,
+            positions,
+            SKShaderTileMode.Clamp
+        );
+        
+        using var flashPaint = new SKPaint
+        {
+            Shader = shader,
+            Style = SKPaintStyle.Fill,
+            BlendMode = SKBlendMode.Plus  // Additive blending for flash effect
+        };
+        
+        canvas.DrawRect(0, 0, width, height, flashPaint);
     }
 }
