@@ -32,6 +32,13 @@ public class DanceMode : IVisualizerMode
         public float RightArmAngle { get; set; }
         public float LeftLegTarget { get; set; }
         public float RightLegTarget { get; set; }
+        
+        // Physical variation properties (subtle differences)
+        public float TorsoHeight { get; set; }      // Multiplier for torso length (0.9-1.1)
+        public float LegLength { get; set; }        // Multiplier for leg length (0.9-1.1)
+        public float ArmLength { get; set; }        // Multiplier for arm length (0.9-1.1)
+        public float HeadSize { get; set; }         // Multiplier for head radius (0.85-1.15)
+        public float BodyWidth { get; set; }        // Multiplier for stroke width (0.85-1.15)
     }
 
     // Crowd of dancers
@@ -93,9 +100,9 @@ public class DanceMode : IVisualizerMode
                 if (secondsSinceLastRaise >= LIGHTER_COOLDOWN_SECONDS)
                 {
                     // Scale probability inversely with dancer count to maintain consistent overall rate
-                    // Target: ~1 lighter per second across entire crowd when intensity sustained
-                    // At 60fps: 0.0167 / dancerCount per frame = 1.0 / dancerCount per second
-                    double probability = 0.0167 / dancers.Count;
+                    // Target: ~1 lighter every 4-5 seconds across entire crowd when intensity sustained
+                    // At 60fps: 0.004 / dancerCount per frame = 0.24 / dancerCount per second
+                    double probability = 0.004 / dancers.Count;
                     if (random.NextDouble() < probability)
                     {
                         dancer.IsLighterUp = true;
@@ -183,17 +190,58 @@ public class DanceMode : IVisualizerMode
 
     private void InitializeDancers(int width, int height)
     {
-        int dancerCount = random.Next(20, 41); // 20 to 40 dancers
+        int dancerCount = random.Next(40, 81); // 40 to 80 dancers
         
         for (int i = 0; i < dancerCount; i++)
         {
-            // Random depth (Z-axis simulation) - closer dancers are larger
-            float depth = 0.3f + (float)random.NextDouble() * 0.7f; // 0.3 to 1.0
+            float x = 0, yPosition = 0, depth = 0;
+            bool validPosition = false;
+            int attempts = 0;
+            const int maxAttempts = 50;
+            
+            // Try to find a position that doesn't overlap with existing dancers
+            while (!validPosition && attempts < maxAttempts)
+            {
+                attempts++;
+                
+                // Random depth (Z-axis simulation) - closer dancers are larger
+                depth = 0.3f + (float)random.NextDouble() * 0.7f; // 0.3 to 1.0
+                
+                // Stage perspective: viewing from low angle looking into crowd
+                // In screen coords: Y=0 is TOP, Y=height is BOTTOM
+                // Closer dancers (depth=1.0) should be at bottom (large Y)
+                // Further dancers (depth=0.3) should be at top (small Y)
+                yPosition = height * (0.2f + depth * 0.65f); // Range: 20% (far) to 85% (close) of screen height
+                x = (float)(random.NextDouble() * width);
+                
+                // Check minimum distance from all existing dancers
+                // Minimum distance scales with depth (larger dancers need more space)
+                float minDistance = 80f * depth; // Scales from 24 (far) to 80 (close) pixels
+                validPosition = true;
+                
+                foreach (var existingDancer in dancers)
+                {
+                    float dx = x - existingDancer.X;
+                    float dy = yPosition - existingDancer.Y;
+                    float distance = (float)Math.Sqrt(dx * dx + dy * dy);
+                    
+                    // Consider the size of both dancers
+                    float requiredDistance = (minDistance + 80f * existingDancer.Scale) * 0.5f;
+                    
+                    if (distance < requiredDistance)
+                    {
+                        validPosition = false;
+                        break;
+                    }
+                }
+            }
+            
+            // If we couldn't find a valid position after max attempts, use the last attempt anyway
             
             dancers.Add(new Dancer
             {
-                X = (float)(random.NextDouble() * width),
-                Y = height * (0.5f + depth * 0.3f), // Further dancers higher on screen
+                X = x,
+                Y = yPosition,
                 Scale = depth, // Closer = larger
                 LighterColor = SKColors.Yellow,
                 IsLighterUp = false,
@@ -211,7 +259,14 @@ public class DanceMode : IVisualizerMode
                 LeftArmAngle = 0f,
                 RightArmAngle = 0f,
                 LeftLegTarget = -10f,
-                RightLegTarget = 10f
+                RightLegTarget = 10f,
+                
+                // Physical variation (subtle differences in proportions)
+                TorsoHeight = 0.9f + (float)random.NextDouble() * 0.2f,    // 0.9 to 1.1
+                LegLength = 0.9f + (float)random.NextDouble() * 0.2f,      // 0.9 to 1.1
+                ArmLength = 0.9f + (float)random.NextDouble() * 0.2f,      // 0.9 to 1.1
+                HeadSize = 0.85f + (float)random.NextDouble() * 0.3f,      // 0.85 to 1.15
+                BodyWidth = 0.85f + (float)random.NextDouble() * 0.3f      // 0.85 to 1.15
             });
         }
         
@@ -232,7 +287,7 @@ public class DanceMode : IVisualizerMode
         using var paint = new SKPaint
         {
             Color = SKColors.White,
-            StrokeWidth = 8,
+            StrokeWidth = 8 * dancer.BodyWidth,  // Apply body width variation
             Style = SKPaintStyle.Stroke,
             IsAntialias = true,
             StrokeCap = SKStrokeCap.Round
@@ -241,20 +296,22 @@ public class DanceMode : IVisualizerMode
         // Enhanced stroke on beat
         if (beatIntensity > 0.3f)
         {
-            paint.StrokeWidth = 8 + beatIntensity * 4f;
+            paint.StrokeWidth = (8 + beatIntensity * 4f) * dancer.BodyWidth;
             paint.Color = SKColors.White.WithAlpha((byte)(200 + beatIntensity * 55));
         }
 
-        // Draw legs (connected to hip at 0, 0) - use per-dancer leg angles
-        DrawLeg(canvas, paint, 0, 0, dancer.LeftLegAngle, 70); // Left leg
-        DrawLeg(canvas, paint, 0, 0, dancer.RightLegAngle, 70); // Right leg
+        // Draw legs (connected to hip at 0, 0) - use per-dancer leg angles and length
+        float legLength = 70 * dancer.LegLength;
+        DrawLeg(canvas, paint, 0, 0, dancer.LeftLegAngle, legLength); // Left leg
+        DrawLeg(canvas, paint, 0, 0, dancer.RightLegAngle, legLength); // Right leg
 
         // Draw torso with rotation - apply dancer variation
         canvas.Save();
         canvas.RotateDegrees(torsoRotation * dancer.MovementScale);
         
-        // Hip to shoulder
-        canvas.DrawLine(0, 0, 0, -120, paint);
+        // Hip to shoulder - apply torso height variation
+        float torsoHeight = 120 * dancer.TorsoHeight;
+        canvas.DrawLine(0, 0, 0, -torsoHeight, paint);
         
         // Calculate per-dancer arm angles with unique phase and speed - INDEPENDENT movement
         // Left arm uses one frequency, right arm uses different frequency for independent motion
@@ -262,21 +319,23 @@ public class DanceMode : IVisualizerMode
         float dancerArmRight = dancer.IsLighterUp ? 180f : 
             (float)Math.Sin((DateTime.Now.Ticks / 1800000.0) * dancer.AnimationSpeed + dancer.PhaseOffset + 1.3) * 35f * dancer.MovementScale; // Different frequency and amplitude
         
-        // Draw arms from shoulders
-        DrawArm(canvas, paint, 0, -110, dancerArmLeft, 60, true); // Left arm
-        DrawArm(canvas, paint, 0, -110, dancerArmRight, 60, false); // Right arm
+        // Draw arms from shoulders - apply arm length variation
+        float shoulderY = -torsoHeight * 0.917f;  // Shoulders at ~91.7% of torso height
+        float armLength = 60 * dancer.ArmLength;
+        DrawArm(canvas, paint, 0, shoulderY, dancerArmLeft, armLength, true); // Left arm
+        DrawArm(canvas, paint, 0, shoulderY, dancerArmRight, armLength, false); // Right arm
 
         // Draw lighter if raised for this dancer
         if (dancer.IsLighterUp)
         {
-            DrawLighter(canvas, paint, 0, -110, 180f, 60, dancer.LighterColor);
+            DrawLighter(canvas, paint, 0, shoulderY, 180f, armLength, dancer.LighterColor);
         }
 
         // Draw head with bob (constrained to stay attached to neck) - apply dancer variation
-        float neckY = -120;
+        float neckY = -torsoHeight;
         float dancerHeadBob = (float)Math.Sin((DateTime.Now.Ticks / 1500000.0) * dancer.AnimationSpeed + dancer.PhaseOffset) * Math.Min(8f, 3f + highEnergy * 5f) * dancer.MovementScale;
-        float headCenterY = neckY - 15 - Math.Abs(dancerHeadBob); // Head stays above neck, bobs vertically
-        canvas.DrawCircle(0, headCenterY, 20, paint);
+        float headCenterY = neckY - 15 * dancer.HeadSize - Math.Abs(dancerHeadBob); // Head stays above neck, bobs vertically
+        canvas.DrawCircle(0, headCenterY, 20 * dancer.HeadSize, paint);
         
         canvas.Restore();
 
