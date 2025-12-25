@@ -19,6 +19,17 @@ public class DanceMode : IVisualizerMode
     private float headBob = 0f;
     private float beatIntensity = 0f;
 
+    // Lighter state
+    private bool isLighterUp = false;
+    private float overallIntensity = 0f;
+    private DateTime lastLighterUpTime = DateTime.MinValue;
+    private double currentLighterMinDuration = 0;
+    private Random random = new Random();
+    private const float LIGHTER_THRESHOLD_UP = 250f; // Threshold to raise lighter
+    private const float LIGHTER_THRESHOLD_DOWN = 220f; // Threshold to lower lighter (hysteresis)
+    private const float INTENSITY_SMOOTHING = 0.15f;
+    private const double LIGHTER_COOLDOWN_SECONDS = 30.0; // Minimum time between lighter raises
+
     // Smoothing for movements
     private float legTargetLeft = 0f;
     private float legTargetRight = 0f;
@@ -34,6 +45,33 @@ public class DanceMode : IVisualizerMode
         float bassEnergy = GetBandEnergy(leftSpectrum, rightSpectrum, 0, 10); // 0-430 Hz
         float midEnergy = GetBandEnergy(leftSpectrum, rightSpectrum, 10, 40); // 430-1700 Hz
         float highEnergy = GetBandEnergy(leftSpectrum, rightSpectrum, 40, 100); // 1700-4300 Hz
+
+        // Calculate overall intensity with smoothing
+        float instantIntensity = bassEnergy + midEnergy + highEnergy;
+        overallIntensity += (instantIntensity - overallIntensity) * INTENSITY_SMOOTHING;
+
+        // Hysteresis for lighter state (prevents flickering)
+        // Can only raise lighter once every 30 seconds
+        if (!isLighterUp && overallIntensity > LIGHTER_THRESHOLD_UP)
+        {
+            double secondsSinceLastRaise = (DateTime.Now - lastLighterUpTime).TotalSeconds;
+            if (secondsSinceLastRaise >= LIGHTER_COOLDOWN_SECONDS)
+            {
+                isLighterUp = true;
+                lastLighterUpTime = DateTime.Now;
+                // Set random minimum duration between 2 and 3 seconds
+                currentLighterMinDuration = 2.0 + random.NextDouble(); // 2.0 to 3.0 seconds
+            }
+        }
+        else if (isLighterUp && overallIntensity < LIGHTER_THRESHOLD_DOWN)
+        {
+            // Only lower if minimum duration has elapsed
+            double secondsSinceLighterUp = (DateTime.Now - lastLighterUpTime).TotalSeconds;
+            if (secondsSinceLighterUp >= currentLighterMinDuration)
+            {
+                isLighterUp = false;
+            }
+        }
 
         // Bass/beat drives leg movement
         if (isBeat)
@@ -64,8 +102,17 @@ public class DanceMode : IVisualizerMode
         legAngleRight += (legTargetRight - legAngleRight) * LEG_SMOOTHING;
 
         // Mid frequencies drive arm movement (constrained)
-        armAngleLeft = (float)Math.Sin(DateTime.Now.Ticks / 2000000.0) * Math.Min(40f, 20f + midEnergy * 20f);
-        armAngleRight = (float)Math.Sin(DateTime.Now.Ticks / 2000000.0 + Math.PI) * Math.Min(40f, 20f + midEnergy * 20f);
+        // Right arm holds lighter when intensity is high
+        if (isLighterUp)
+        {
+            armAngleRight = 180f; // Arm raised straight up for lighter (180 degrees points upward in this coordinate system)
+            armAngleLeft = (float)Math.Sin(DateTime.Now.Ticks / 2000000.0) * Math.Min(40f, 20f + midEnergy * 20f);
+        }
+        else
+        {
+            armAngleLeft = (float)Math.Sin(DateTime.Now.Ticks / 2000000.0) * Math.Min(40f, 20f + midEnergy * 20f);
+            armAngleRight = (float)Math.Sin(DateTime.Now.Ticks / 2000000.0 + Math.PI) * Math.Min(40f, 20f + midEnergy * 20f);
+        }
 
         // High frequencies drive torso and head (constrained)
         float targetTorso = (float)Math.Sin(DateTime.Now.Ticks / 3000000.0) * Math.Min(10f, highEnergy * 8f);
@@ -113,6 +160,12 @@ public class DanceMode : IVisualizerMode
         DrawArm(canvas, paint, 0, -110, armAngleLeft, 60, true); // Left arm
         DrawArm(canvas, paint, 0, -110, armAngleRight, 60, false); // Right arm
 
+        // Draw lighter if raised
+        if (isLighterUp)
+        {
+            DrawLighter(canvas, paint, 0, -110, armAngleRight, 60);
+        }
+
         // Draw head with bob (constrained to stay attached to neck)
         float neckY = -120;
         float headCenterY = neckY - 15 - Math.Abs(headBob); // Head stays above neck, bobs vertically
@@ -121,6 +174,73 @@ public class DanceMode : IVisualizerMode
         canvas.Restore();
 
         canvas.Restore();
+
+        // DEBUG: Draw intensity indicator (temporary for testing)
+        DrawIntensityDebug(canvas, width, height);
+    }
+
+    private void DrawIntensityDebug(SKCanvas canvas, int width, int height)
+    {
+        int barWidth = 300;
+        int barHeight = 30;
+        int margin = 20;
+        int x = margin;
+        int y = margin;
+
+        // Background box
+        using var bgPaint = new SKPaint
+        {
+            Color = new SKColor(0, 0, 0, 180),
+            Style = SKPaintStyle.Fill
+        };
+        canvas.DrawRect(x - 5, y - 5, barWidth + 60, 90, bgPaint);
+
+        // Text paint
+        using var textPaint = new SKPaint
+        {
+            Color = SKColors.White,
+            TextSize = 14,
+            IsAntialias = true,
+            Typeface = SKTypeface.FromFamilyName("Arial", SKFontStyleWeight.Bold, SKFontStyleWidth.Normal, SKFontStyleSlant.Upright)
+        };
+
+        // Draw intensity bar
+        float maxDisplay = 350f;
+        float barFillWidth = Math.Min(overallIntensity / maxDisplay, 1f) * barWidth;
+        
+        // Bar background
+        using var barBgPaint = new SKPaint { Color = new SKColor(60, 60, 60), Style = SKPaintStyle.Fill };
+        canvas.DrawRect(x, y + 20, barWidth, barHeight, barBgPaint);
+        
+        // Bar fill (color changes based on threshold)
+        var barColor = isLighterUp ? SKColors.Orange : (overallIntensity > LIGHTER_THRESHOLD_DOWN ? SKColors.Yellow : SKColors.Green);
+        using var barFillPaint = new SKPaint { Color = barColor, Style = SKPaintStyle.Fill };
+        canvas.DrawRect(x, y + 20, barFillWidth, barHeight, barFillPaint);
+
+        // Draw threshold lines
+        float upThresholdX = x + (LIGHTER_THRESHOLD_UP / maxDisplay) * barWidth;
+        float downThresholdX = x + (LIGHTER_THRESHOLD_DOWN / maxDisplay) * barWidth;
+        
+        using var thresholdPaint = new SKPaint
+        {
+            Color = SKColors.Red,
+            StrokeWidth = 2,
+            Style = SKPaintStyle.Stroke
+        };
+        canvas.DrawLine(upThresholdX, y + 20, upThresholdX, y + 20 + barHeight, thresholdPaint);
+        
+        using var thresholdDownPaint = new SKPaint
+        {
+            Color = SKColors.Blue,
+            StrokeWidth = 2,
+            Style = SKPaintStyle.Stroke
+        };
+        canvas.DrawLine(downThresholdX, y + 20, downThresholdX, y + 20 + barHeight, thresholdDownPaint);
+
+        // Text labels
+        canvas.DrawText($"Intensity: {overallIntensity:F2}", x, y + 15, textPaint);
+        canvas.DrawText($"Lighter: {(isLighterUp ? "UP" : "down")}", x, y + 70, textPaint);
+        canvas.DrawText($"Up: {LIGHTER_THRESHOLD_UP:F1} Down: {LIGHTER_THRESHOLD_DOWN:F1}", x + 150, y + 70, textPaint);
     }
 
     private void DrawLeg(SKCanvas canvas, SKPaint paint, float startX, float startY, float angle, float length)
@@ -153,8 +273,8 @@ public class DanceMode : IVisualizerMode
 
     private void DrawArm(SKCanvas canvas, SKPaint paint, float startX, float startY, float angle, float length, bool isLeft)
     {
-        // Clamp angle to keep arms looking natural
-        angle = Math.Clamp(angle, -50f, 50f);
+        // Clamp angle to keep arms looking natural (allow 180 for straight up lighter raise)
+        angle = Math.Clamp(angle, -50f, 180f);
         
         float rad = angle * (float)Math.PI / 180f;
         float upperLength = length * 0.5f;
@@ -170,10 +290,94 @@ public class DanceMode : IVisualizerMode
         canvas.DrawLine(startX, startY, elbowX, elbowY, paint);
 
         // Lower arm (elbow to hand) - follows through with constrained bend
-        float lowerAngle = rad * 0.6f; // More subtle bend
+        // Special case: if arm is raised (angle > 150), keep it straight for lighter pose
+        float lowerAngle;
+        if (angle > 150f)
+        {
+            lowerAngle = rad; // Keep arm straight when raised for lighter
+        }
+        else
+        {
+            lowerAngle = rad * 0.6f; // More subtle bend for normal movement
+        }
         float handX = elbowX + dir * (float)Math.Sin(lowerAngle) * lowerLength;
         float handY = elbowY + (float)Math.Cos(lowerAngle) * lowerLength;
         canvas.DrawLine(elbowX, elbowY, handX, handY, paint);
+    }
+
+    private void DrawLighter(SKCanvas canvas, SKPaint paint, float startX, float startY, float angle, float armLength)
+    {
+        // Use exact same calculation as DrawArm to ensure lighter is at hand position
+        angle = Math.Clamp(angle, -180f, 180f);
+        float rad = angle * (float)Math.PI / 180f;
+        float upperLength = armLength * 0.5f;
+        float lowerLength = armLength * 0.5f;
+
+        // Right arm calculations (matches DrawArm exactly)
+        float dir = 1; // Right side
+        float shoulderOffsetX = dir * 15;
+        float elbowX = startX + shoulderOffsetX + dir * (float)Math.Sin(rad) * upperLength * 0.7f;
+        float elbowY = startY + (float)Math.Cos(rad) * upperLength;
+
+        // Lower arm calculation (matches DrawArm exactly)
+        float lowerAngle;
+        if (angle > 150f)
+        {
+            lowerAngle = rad; // Keep arm straight when raised for lighter
+        }
+        else
+        {
+            lowerAngle = rad * 0.6f;
+        }
+        float handX = elbowX + dir * (float)Math.Sin(lowerAngle) * lowerLength;
+        float handY = elbowY + (float)Math.Cos(lowerAngle) * lowerLength;
+
+        // Draw lighter body (small rectangle)
+        using var lighterPaint = new SKPaint
+        {
+            Color = SKColors.Silver,
+            Style = SKPaintStyle.Fill,
+            IsAntialias = true
+        };
+        
+        var lighterRect = new SKRect(handX - 3, handY - 8, handX + 3, handY);
+        canvas.DrawRect(lighterRect, lighterPaint);
+
+        // Draw flame (flickering effect)
+        float flicker = (float)Math.Sin(DateTime.Now.Ticks / 500000.0) * 2f;
+        float flameHeight = 8f + flicker;
+        
+        using var flamePath = new SKPath();
+        flamePath.MoveTo(handX, handY - 8);
+        flamePath.LineTo(handX - 2, handY - 8 - flameHeight * 0.5f);
+        flamePath.LineTo(handX, handY - 8 - flameHeight);
+        flamePath.LineTo(handX + 2, handY - 8 - flameHeight * 0.5f);
+        flamePath.Close();
+        
+        // Outer orange glow
+        using var glowPaint = new SKPaint
+        {
+            Color = SKColors.Orange.WithAlpha(150),
+            Style = SKPaintStyle.Fill,
+            IsAntialias = true
+        };
+        canvas.DrawPath(flamePath, glowPaint);
+        
+        // Inner yellow flame
+        using var flamePaint = new SKPaint
+        {
+            Color = SKColors.Yellow,
+            Style = SKPaintStyle.Fill,
+            IsAntialias = true
+        };
+        
+        var innerFlamePath = new SKPath();
+        innerFlamePath.MoveTo(handX, handY - 8);
+        innerFlamePath.LineTo(handX - 1, handY - 8 - flameHeight * 0.6f);
+        innerFlamePath.LineTo(handX, handY - 8 - flameHeight * 0.8f);
+        innerFlamePath.LineTo(handX + 1, handY - 8 - flameHeight * 0.6f);
+        innerFlamePath.Close();
+        canvas.DrawPath(innerFlamePath, flamePaint);
     }
 
     private float GetBandEnergy(float[] leftSpectrum, float[] rightSpectrum, int startBin, int endBin)
