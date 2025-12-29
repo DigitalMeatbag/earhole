@@ -97,6 +97,8 @@ public class TwoCirclesMode : IVisualizerMode
     // Cached trig values for performance
     private float[]? cachedCos;
     private float[]? cachedSin;
+    private float[]? cachedCosRight; // Counter-clockwise for right circle
+    private float[]? cachedSinRight;
     private int cachedSpectrumLength = 0;
 
     public string Name => "two circles";
@@ -370,27 +372,28 @@ public class TwoCirclesMode : IVisualizerMode
         // Interleave drawing segments from both circles
         for (int i = 0; i < length; i += step)
         {
-            // Draw left circle segment
+            // Draw left circle segment (clockwise)
             if (i < leftSpectrum.Length)
             {
                 DrawSegment(canvas, leftCenterX, centerY, i, leftSpectrum.Length,
                            ref currentRadiiLeft, ref previousRadiiLeft, ref smoothedVelocitiesLeft,
-                           renderBaseRadius, leftOutColor, leftInColor, alphaMultiplier);
+                           renderBaseRadius, leftOutColor, leftInColor, alphaMultiplier, false);
             }
             
-            // Draw right circle segment
+            // Draw right circle segment (counter-clockwise)
             if (i < rightSpectrum.Length)
             {
                 DrawSegment(canvas, rightCenterX, centerY, i, rightSpectrum.Length,
                            ref currentRadiiRight, ref previousRadiiRight, ref smoothedVelocitiesRight,
-                           renderBaseRadius, rightOutColor, rightInColor, alphaMultiplier);
+                           renderBaseRadius, rightOutColor, rightInColor, alphaMultiplier, true);
             }
         }
     }
 
     private void DrawSegment(SKCanvas canvas, float centerX, float centerY, int i, int spectrumLength,
                             ref float[] currentRadii, ref float[] previousRadii, ref float[] smoothedVelocities,
-                            float renderBaseRadius, SKColor leftOutColor, SKColor leftInColor, float alphaMultiplier)
+                            float renderBaseRadius, SKColor leftOutColor, SKColor leftInColor, float alphaMultiplier,
+                            bool isRightCircle = false)
     {
         // Initialize or update cached trig values if spectrum length changed
         if (cachedCos == null || cachedSpectrumLength != spectrumLength)
@@ -398,13 +401,21 @@ public class TwoCirclesMode : IVisualizerMode
             cachedSpectrumLength = spectrumLength;
             cachedCos = new float[spectrumLength + 1];
             cachedSin = new float[spectrumLength + 1];
+            cachedCosRight = new float[spectrumLength + 1];
+            cachedSinRight = new float[spectrumLength + 1];
             
             float anglePerSegment = 2f * MathF.PI / spectrumLength;
             for (int j = 0; j <= spectrumLength; j++)
             {
+                // Clockwise for left circle (positive direction)
                 float angle = -MathF.PI / 2f + (anglePerSegment * j);
                 cachedCos[j] = MathF.Cos(angle);
                 cachedSin[j] = MathF.Sin(angle);
+                
+                // Counter-clockwise for right circle (negative direction)
+                float angleRight = -MathF.PI / 2f - (anglePerSegment * j);
+                cachedCosRight[j] = MathF.Cos(angleRight);
+                cachedSinRight[j] = MathF.Sin(angleRight);
             }
         }
         
@@ -434,20 +445,23 @@ public class TwoCirclesMode : IVisualizerMode
             color = NeutralColor;
         }
 
-        // Use cached trig values
+        // Use cached trig values - choose based on which circle
+        float[]? cosCache = isRightCircle ? cachedCosRight : cachedCos;
+        float[]? sinCache = isRightCircle ? cachedSinRight : cachedSin;
+        
         float innerRadius = renderBaseRadius;
         float outerRadius = currentRadii[i];
         
         int i2 = i + 1;
-        float x1Inner = centerX + innerRadius * cachedCos![i];
-        float y1Inner = centerY + innerRadius * cachedSin![i];
-        float x1Outer = centerX + outerRadius * cachedCos[i];
-        float y1Outer = centerY + outerRadius * cachedSin[i];
+        float x1Inner = centerX + innerRadius * cosCache![i];
+        float y1Inner = centerY + innerRadius * sinCache![i];
+        float x1Outer = centerX + outerRadius * cosCache[i];
+        float y1Outer = centerY + outerRadius * sinCache[i];
         
-        float x2Inner = centerX + innerRadius * cachedCos[i2];
-        float y2Inner = centerY + innerRadius * cachedSin[i2];
-        float x2Outer = centerX + outerRadius * cachedCos[i2];
-        float y2Outer = centerY + outerRadius * cachedSin[i2];
+        float x2Inner = centerX + innerRadius * cosCache[i2];
+        float y2Inner = centerY + innerRadius * sinCache[i2];
+        float x2Outer = centerX + outerRadius * cosCache[i2];
+        float y2Outer = centerY + outerRadius * sinCache[i2];
 
         // Draw segment as a quad using cached path and paint
         segmentPath.Reset();
