@@ -26,6 +26,10 @@ public class SpectrumBarsMode : IVisualizerMode
     private float[] capAlphas = Array.Empty<float>(); // alpha (0-255)
     private int[] capHolds = Array.Empty<int>(); // frames to hold full opacity before falling
     private float[] capVels = Array.Empty<float>(); // vertical velocity (pixels/frame)
+    private SKColor[] capColors = Array.Empty<SKColor>(); // color for each cap
+    private float[] capColorProgress = Array.Empty<float>(); // 0..1 progress where 1 = full color, 0 = white
+    private const int CapColorDecayFrames = 12; // increased perceptible decay (doubled)
+    private const float CapColorDecayStep = 1f / CapColorDecayFrames;
     private const float CapFallSpeed = 1.5f; // pixels per frame when falling
     private const float CapGravity = 0.25f; // acceleration (pixels per frame^2)
     private const float CapFadePerFrame = 4f; // alpha decrease per frame
@@ -63,12 +67,16 @@ public class SpectrumBarsMode : IVisualizerMode
             capAlphas = new float[length];
             capHolds = new int[length];
             capVels = new float[length];
+            capColors = new SKColor[length];
+            capColorProgress = new float[length];
             for (int i = 0; i < length; i++)
             {
                 capYs[i] = height; // start at bottom (off-screen)
                 capAlphas[i] = 0f;
                 capHolds[i] = 0;
                 capVels[i] = 0f;
+                capColors[i] = SKColors.White;
+                capColorProgress[i] = 0f;
             }
         }
 
@@ -79,18 +87,29 @@ public class SpectrumBarsMode : IVisualizerMode
             float x = i * barWidth;
             SKColor baseColor = GetColorForHeight(barHeight, height);
 
-            // On beat, blend color 50% towards white for pulse effect
-            SKColor color = isBeat ? BlendWithWhite(baseColor, 0.5f) : baseColor;
+
+            // On beat, bars turn fully white; otherwise use base color
+            SKColor barPaintColor = isBeat ? SKColors.White : baseColor;
 
             // Draw the bar
-            paint.Color = color;
+            paint.Color = barPaintColor;
             canvas.DrawRect(x, height - barHeight, barWidth, barHeight, paint);
 
             // --- White-cap (peak) handling ---
             float barTopY = height - barHeight;
 
+            // On beat, set cap to bar's color and reset its color-progress to full
+            if (isBeat)
+            {
+                capColors[i] = baseColor;
+                capColorProgress[i] = 1f;
+                capYs[i] = barTopY;
+                capAlphas[i] = 255f;
+                capHolds[i] = CapHoldFrames;
+                capVels[i] = 0f;
+            }
             // If the bar has risen into or above the cap, snap cap to bar top and set full alpha
-            if (barTopY <= capYs[i])
+            else if (barTopY <= capYs[i])
             {
                 capYs[i] = barTopY;
                 capAlphas[i] = 255f;
@@ -121,10 +140,18 @@ public class SpectrumBarsMode : IVisualizerMode
                 }
             }
 
-            // If cap still visible, draw it as a white rectangle with current alpha
+            // Decay cap color progress towards white if needed
+            if (capColorProgress[i] > 0f && !isBeat)
+            {
+                capColorProgress[i] = Math.Max(0f, capColorProgress[i] - CapColorDecayStep);
+            }
+
+            // If cap still visible, compute display color (blend towards white based on progress) and draw
             if (capAlphas[i] > 0f && capYs[i] < height)
             {
-                paint.Color = SKColors.White.WithAlpha((byte)Math.Clamp((int)capAlphas[i], 0, 255));
+                float progress = Math.Clamp(capColorProgress[i], 0f, 1f);
+                SKColor display = progress > 0f ? BlendWithWhite(capColors[i], 1f - progress) : SKColors.White;
+                paint.Color = display.WithAlpha((byte)Math.Clamp((int)capAlphas[i], 0, 255));
                 canvas.DrawRect(x, capYs[i] - CapThickness, barWidth, CapThickness, paint);
             }
         }
