@@ -1,6 +1,7 @@
 # Build and Publish Script for earhole
-# This script builds the project in Release mode, publishes it as self-contained,
+# This script builds the project in Release mode, publishes it as framework-dependent,
 # and creates a ZIP archive of the publish directory.
+# NOTE: Users will need .NET 6.0 Runtime installed to run the application.
 
 Write-Host "Starting earhole release build process..." -ForegroundColor Green
 
@@ -28,13 +29,9 @@ if ($LASTEXITCODE -ne 0) {
     exit 1
 }
 
-# Step 3: Publish as self-contained executable with single file and trimming
-Write-Host "Publishing self-contained executable..." -ForegroundColor Yellow
-dotnet publish earhole.csproj -c Release -r win-x64 --self-contained `
-    -p:PublishSingleFile=true `
-    -p:EnableCompressionInSingleFile=true `
-    -p:PublishTrimmed=true `
-    -p:TrimMode=partial `
+# Step 3: Publish as framework-dependent (requires .NET 6.0 Runtime)
+Write-Host "Publishing framework-dependent executable..." -ForegroundColor Yellow
+dotnet publish earhole.csproj -c Release -r win-x64 --no-self-contained `
     -o publish
 if ($LASTEXITCODE -ne 0) {
     Write-Host "Publish failed!" -ForegroundColor Red
@@ -58,6 +55,8 @@ $zipSize = (Get-Item "publish\$zipName").Length / 1MB
 Write-Host "Release build completed successfully!" -ForegroundColor Green
 Write-Host "ZIP file created: publish\$zipName" -ForegroundColor Cyan
 Write-Host ("ZIP file size: {0:N2} MB" -f $zipSize) -ForegroundColor Cyan
+Write-Host "NOTE: Users will need .NET 6.0 Runtime or later installed!" -ForegroundColor Yellow
+Write-Host "Download link: https://dotnet.microsoft.com/download/dotnet/6.0" -ForegroundColor Yellow
 if ($zipSize -lt 100) {
     Write-Host "Size is under 100MB limit - ready for distribution!" -ForegroundColor Green
 } else {
