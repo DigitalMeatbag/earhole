@@ -1,7 +1,6 @@
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using earhole.Services;
-using earhole.Modes;
 
 namespace earhole;
 
@@ -22,6 +21,7 @@ public static class EarholeHost
         services.AddSingleton<UINotificationServiceFactory>();
         services.AddSingleton<KeyboardCommandHandlerFactory>();
         services.AddSingleton<MediaSessionManager>();
+        
         return services.BuildServiceProvider();
     }
 }
