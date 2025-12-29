@@ -14,10 +14,7 @@ This is a C# WPF application that captures live audio data from the system loopb
 - **SkiaSharp hardware-accelerated rendering** with mode-specific optimizations
 - **8 unique visualizer modes** including stereo-separated circular visualizers and animated concert crowd simulation
 
-*** End Patch
 ## System Architecture
-
-
 
 ### Core Services
 
