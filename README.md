@@ -14,7 +14,7 @@ This is a C# WPF application that captures live audio data from the system loopb
 - **SkiaSharp hardware-accelerated rendering** with mode-specific optimizations
 - **8 unique visualizer modes** including stereo-separated circular visualizers and animated concert crowd simulation
 
-- Real-time audio spectrum visualization with selectable modes
+*** End Patch
 ## System Architecture
 
 
@@ -37,24 +37,7 @@ System Audio → AudioCaptureService → FFT → Spectrum Data
                                  MainWindow → Visualizer Modes
 ```
 
-The main window acts as a thin coordinator, wiring up services and handling the rendering pipeline. Each service is independently testable and has a single, clear responsibility.
-- **AudioCaptureService**: Manages WASAPI loopback capture, FFT processing, and spectrum data generation
-- **BeatDetectionService**: Multi-band energy analysis with adaptive BPM tracking and peak detection
-- **ModeManagementService**: Handles visualizer mode switching and shuffle timer
-- **UINotificationService**: Manages status messages, animations, and UI text updates
-- **KeyboardCommandHandler**: Command pattern for keyboard input handling
-
-### Data Flow
-
-```
-System Audio → AudioCaptureService → FFT → Spectrum Data
-                                          ↓
-                                   BeatDetectionService → Beat Events
-                                          ↓
-                                      MainWindow → Visualizer Modes
-```
-
-The main window acts as a thin coordinator, wiring up services and handling the rendering pipeline. Each service is independently testable and has a single, clear responsibility.
+*** End Patch
 
 ## Libraries Used
 
