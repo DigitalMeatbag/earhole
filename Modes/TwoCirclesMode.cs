@@ -34,6 +34,7 @@ public class TwoCirclesMode : IVisualizerMode
     
     // Trail effect using persistent bitmap
     private SKBitmap? trailBitmap;
+    private SKCanvas? trailCanvas;
     private int lastWidth = 0;
     private int lastHeight = 0;
     private const float TrailFadeRate = 0.88f; // Multiply alpha by this each frame (faster fade to prevent ghosting)
@@ -58,6 +59,36 @@ public class TwoCirclesMode : IVisualizerMode
     
     // Neutral color when not moving (always white)
     private static readonly SKColor NeutralColor = SKColors.White;
+    
+    // Cached paint objects for performance
+    private readonly SKPaint clearPaint = new SKPaint
+    {
+        Color = SKColors.Transparent,
+        BlendMode = SKBlendMode.Src,
+        IsAntialias = true
+    };
+    
+    private readonly SKPaint fadePaint = new SKPaint
+    {
+        Color = SKColors.White.WithAlpha((byte)(255 * 0.88f)),
+        BlendMode = SKBlendMode.DstIn
+    };
+    
+    private readonly SKPaint wavePaint = new SKPaint
+    {
+        IsAntialias = true,
+        Style = SKPaintStyle.Stroke,
+        StrokeWidth = 3f,
+        BlendMode = SKBlendMode.Plus
+    };
+    
+    private readonly SKPath segmentPath = new SKPath();
+    private readonly SKPaint segmentPaint = new SKPaint
+    {
+        IsAntialias = true,
+        Style = SKPaintStyle.Fill,
+        BlendMode = SKBlendMode.Plus
+    };
 
     public string Name => "two circles";
     public string Emoji => "♾️";
@@ -69,14 +100,15 @@ public class TwoCirclesMode : IVisualizerMode
         // Initialize or resize trail bitmap if needed
         if (trailBitmap == null || lastWidth != width || lastHeight != height)
         {
+            trailCanvas?.Dispose();
             trailBitmap?.Dispose();
             trailBitmap = new SKBitmap(width, height);
+            trailCanvas = new SKCanvas(trailBitmap);
             lastWidth = width;
             lastHeight = height;
             
             // Clear the new bitmap
-            using var bitmapCanvas = new SKCanvas(trailBitmap);
-            bitmapCanvas.Clear(SKColors.Transparent);
+            trailCanvas.Clear(SKColors.Transparent);
         }
 
         // Update color cycling - each color is offset by 90 degrees to keep them distinct
@@ -167,19 +199,11 @@ public class TwoCirclesMode : IVisualizerMode
         FadeTrailBitmap();
 
         // Clear the inner circles and draw current frame to trail bitmap
-        using (var trailCanvas = new SKCanvas(trailBitmap))
+        if (trailCanvas != null)
         {
             // Clear inner circles from trail (preserve center for compression waves)
-            using (var clearPaint = new SKPaint
-            {
-                Color = SKColors.Transparent,
-                BlendMode = SKBlendMode.Src,
-                IsAntialias = true
-            })
-            {
-                trailCanvas.DrawCircle(leftCenterX, centerY, baseRadius, clearPaint);
-                trailCanvas.DrawCircle(rightCenterX, centerY, baseRadius, clearPaint);
-            }
+            trailCanvas.DrawCircle(leftCenterX, centerY, baseRadius, clearPaint);
+            trailCanvas.DrawCircle(rightCenterX, centerY, baseRadius, clearPaint);
 
             // Draw current frame at full alpha - ensures all bars blend properly with SKBlendMode.Plus
             RenderInterleavedCircles(trailCanvas, leftCenterX, rightCenterX, centerY,
@@ -217,15 +241,7 @@ public class TwoCirclesMode : IVisualizerMode
             float alpha = (1f - ageProgress) * (1f - distanceProgress); // Fade as it ages and approaches center
             
             // Draw the compression wave with the spectrum's average color at beat time
-            using var wavePaint = new SKPaint
-            {
-                Color = wave.Color.WithAlpha((byte)(alpha * 200)),
-                IsAntialias = true,
-                Style = SKPaintStyle.Stroke,
-                StrokeWidth = 3f,
-                BlendMode = SKBlendMode.Plus
-            };
-            
+            wavePaint.Color = wave.Color.WithAlpha((byte)(alpha * 200));
             canvas.DrawCircle(wave.CenterX, wave.CenterY, wave.CurrentRadius, wavePaint);
         }
 
@@ -292,21 +308,13 @@ public class TwoCirclesMode : IVisualizerMode
         
         return NeutralColor;
     }
-
-    // Cached paint for fade effect
-    private readonly SKPaint fadePaint = new SKPaint
-    {
-        Color = SKColors.White.WithAlpha((byte)(255 * 0.88f)),
-        BlendMode = SKBlendMode.DstIn
-    };
     
     private void FadeTrailBitmap()
     {
-        if (trailBitmap == null) return;
+        if (trailCanvas == null) return;
 
         // Draw a semi-transparent rectangle to fade the entire bitmap
-        using var canvas = new SKCanvas(trailBitmap);
-        canvas.DrawRect(0, 0, trailBitmap.Width, trailBitmap.Height, fadePaint);
+        trailCanvas.DrawRect(0, 0, trailBitmap!.Width, trailBitmap.Height, fadePaint);
     }
 
     private void UpdateRadii(float[] spectrum, ref float[] currentRadii)
@@ -399,25 +407,15 @@ public class TwoCirclesMode : IVisualizerMode
         float x2Outer = centerX + outerRadius * MathF.Cos(angle2);
         float y2Outer = centerY + outerRadius * MathF.Sin(angle2);
 
-        // Draw segment as a quad
-        using (var path = new SKPath())
-        {
-            path.MoveTo(x1Inner, y1Inner);
-            path.LineTo(x1Outer, y1Outer);
-            path.LineTo(x2Outer, y2Outer);
-            path.LineTo(x2Inner, y2Inner);
-            path.Close();
+        // Draw segment as a quad using cached path and paint
+        segmentPath.Reset();
+        segmentPath.MoveTo(x1Inner, y1Inner);
+        segmentPath.LineTo(x1Outer, y1Outer);
+        segmentPath.LineTo(x2Outer, y2Outer);
+        segmentPath.LineTo(x2Inner, y2Inner);
+        segmentPath.Close();
 
-            using (var paint = new SKPaint
-            {
-                Color = color.WithAlpha((byte)(200 * alphaMultiplier)),
-                IsAntialias = true,
-                Style = SKPaintStyle.Fill,
-                BlendMode = SKBlendMode.Plus
-            })
-            {
-                canvas.DrawPath(path, paint);
-            }
-        }
+        segmentPaint.Color = color.WithAlpha((byte)(200 * alphaMultiplier));
+        canvas.DrawPath(segmentPath, segmentPaint);
     }
 }
