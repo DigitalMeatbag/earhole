@@ -1,6 +1,5 @@
 using SkiaSharp;
 using System.IO;
-using Svg.Skia;
 
 namespace earhole.Modes;
 
