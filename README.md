@@ -22,6 +22,30 @@ This is a C# WPF application that captures live audio data from the system loopb
 - .NET 6.0 Runtime (for running published version) or .NET 6.0 SDK (for building from source)
 - Stereo mix/loopback audio device enabled in Windows sound settings (for capturing system audio)
 
+## Architecture
+
+earhole uses a modular, service-oriented architecture for maintainability and separation of concerns:
+
+### Core Services
+
+- **AudioCaptureService**: Manages WASAPI loopback capture, FFT processing, and spectrum data generation
+- **BeatDetectionService**: Multi-band energy analysis with adaptive BPM tracking and peak detection
+- **ModeManagementService**: Handles visualizer mode switching and shuffle timer
+- **UINotificationService**: Manages status messages, animations, and UI text updates
+- **KeyboardCommandHandler**: Command pattern for keyboard input handling
+
+### Data Flow
+
+```
+System Audio → AudioCaptureService → FFT → Spectrum Data
+                                          ↓
+                                   BeatDetectionService → Beat Events
+                                          ↓
+                                      MainWindow → Visualizer Modes
+```
+
+The main window acts as a thin coordinator, wiring up services and handling the rendering pipeline. Each service is independently testable and has a single, clear responsibility.
+
 ## Libraries Used
 
 - **NAudio**: For WASAPI loopback audio capture
