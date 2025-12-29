@@ -28,9 +28,13 @@ if ($LASTEXITCODE -ne 0) {
     exit 1
 }
 
-# Step 3: Publish as self-contained executable
+# Step 3: Publish as self-contained executable with single file and trimming
 Write-Host "Publishing self-contained executable..." -ForegroundColor Yellow
 dotnet publish earhole.csproj -c Release -r win-x64 --self-contained `
+    -p:PublishSingleFile=true `
+    -p:EnableCompressionInSingleFile=true `
+    -p:PublishTrimmed=true `
+    -p:TrimMode=partial `
     -o publish
 if ($LASTEXITCODE -ne 0) {
     Write-Host "Publish failed!" -ForegroundColor Red
