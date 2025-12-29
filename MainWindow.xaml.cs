@@ -23,7 +23,7 @@ public partial class MainWindow : Window
         return p;
     }
 
-    private const int SPECTRUM_RESOLUTION = 512; // Number of frequency bins for spectrum analysis (higher = smoother but more CPU)
+    private const int SPECTRUM_RESOLUTION = 1024; // Number of frequency bins for spectrum analysis (higher = smoother but more CPU)
     private float[] leftSpectrum = new float[SPECTRUM_RESOLUTION]; // FFT bins for left channel
     private float[] rightSpectrum = new float[SPECTRUM_RESOLUTION]; // FFT bins for right channel
     private object spectrumLock = new object();

@@ -11,6 +11,9 @@ public class ColdWarMode : IVisualizerMode
     private readonly Random random = new Random();
     private Svg.Skia.SKSvg? worldMapSvg;
     private SKBitmap? mapColorCache;
+    private SKBitmap? mapRenderCache; // Cache rendered map to avoid redrawing SVG
+    private int lastRenderWidth = 0;
+    private int lastRenderHeight = 0;
     private float scaleX = 1f;
     private float scaleY = 1f;
     private readonly List<Explosion> explosions = new List<Explosion>();
@@ -35,6 +38,13 @@ public class ColdWarMode : IVisualizerMode
         IsAntialias = true,
         Style = SKPaintStyle.Fill
     };
+    
+    // Cached color instances to avoid repeated allocations
+    private static readonly SKColor WesternMissileColor = new SKColor(100, 150, 255);
+    private static readonly SKColor SovietMissileColor = new SKColor(255, 100, 100);
+    private static readonly SKColor WesternExplosionBase = new SKColor(100, 150, 255);
+    private static readonly SKColor SovietExplosionBase = new SKColor(255, 100, 100);
+    private static readonly SKColor ExplosionCore = new SKColor(255, 255, 255);
 
     // NATO countries (blue)
     private static readonly HashSet<string> NATOCountries = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
@@ -182,8 +192,8 @@ public class ColdWarMode : IVisualizerMode
             canvas.Restore();
         }
 
-        // Process frequencies
-        int step = Math.Max(1, leftSpectrum.Length / 20); // Sample ~20 frequencies
+        // Process frequencies - reduce sampling with larger step for performance
+        int step = Math.Max(1, leftSpectrum.Length / 12); // Sample ~12 frequencies instead of 20
         for (int i = 0; i < leftSpectrum.Length; i += step)
         {
             // Pick random point
@@ -256,8 +266,7 @@ public class ColdWarMode : IVisualizerMode
             float x = (1 - t) * (1 - t) * missile.Start.X + 2 * (1 - t) * t * missile.ControlPoint.X + t * t * missile.End.X;
             float y = (1 - t) * (1 - t) * missile.Start.Y + 2 * (1 - t) * t * missile.ControlPoint.Y + t * t * missile.End.Y;
 
-            SKColor missileColor = missile.Alliance == Alliance.Western ? new SKColor(100, 150, 255) : new SKColor(255, 100, 100);
-            missilePaint.Color = missileColor;
+            missilePaint.Color = missile.Alliance == Alliance.Western ? WesternMissileColor : SovietMissileColor;
 
             canvas.DrawCircle(x, y, 3, missilePaint);
         }
@@ -278,23 +287,18 @@ public class ColdWarMode : IVisualizerMode
             float radius = progress * 40f * explosion.Size; // Apply size multiplier
             byte alpha = (byte)((1 - progress) * 255);
 
-            // Apply brightness multiplier to colors
-            byte baseR = (byte)(explosion.Alliance == Alliance.Western ? 100 : 255);
-            byte baseG = (byte)(explosion.Alliance == Alliance.Western ? 150 : 100);
-            byte baseB = (byte)(explosion.Alliance == Alliance.Western ? 255 : 100);
-            
-            byte brightR = (byte)Math.Min(255, baseR * explosion.Brightness);
-            byte brightG = (byte)Math.Min(255, baseG * explosion.Brightness);
-            byte brightB = (byte)Math.Min(255, baseB * explosion.Brightness);
+            // Apply brightness multiplier to colors using cached base colors
+            SKColor baseColor = explosion.Alliance == Alliance.Western ? WesternExplosionBase : SovietExplosionBase;
+            byte brightR = (byte)Math.Min(255, baseColor.Red * explosion.Brightness);
+            byte brightG = (byte)Math.Min(255, baseColor.Green * explosion.Brightness);
+            byte brightB = (byte)Math.Min(255, baseColor.Blue * explosion.Brightness);
 
-            SKColor explosionColor = new SKColor(brightR, brightG, brightB, alpha);
-
-            explosionPaint.Color = explosionColor;
+            explosionPaint.Color = new SKColor(brightR, brightG, brightB, alpha);
             canvas.DrawCircle(explosion.Position, radius, explosionPaint);
 
             // Inner bright core (also affected by brightness)
             byte coreAlpha = (byte)Math.Min(255, alpha * 0.8f * explosion.Brightness);
-            corePaint.Color = new SKColor(255, 255, 255, coreAlpha);
+            corePaint.Color = ExplosionCore.WithAlpha(coreAlpha);
             canvas.DrawCircle(explosion.Position, radius * 0.3f, corePaint);
         }
     }

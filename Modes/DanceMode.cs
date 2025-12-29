@@ -150,6 +150,11 @@ public class DanceMode : IVisualizerMode
         IsAntialias = true
     };
     
+    // Cached objects for flame rendering
+    private readonly SKPath flamePathCache = new SKPath();
+    private readonly SKPath innerFlamePathCache = new SKPath();
+    
+    // Cached objects for laser rendering
     private readonly SKPaint beamPaint = new SKPaint
     {
         Style = SKPaintStyle.Stroke,
@@ -741,13 +746,13 @@ public class DanceMode : IVisualizerMode
         float flameHeight = (8f + flicker) * 4f; // 4x height for intensity
         float flameWidth = 8f; // 4x width for intensity
         
-        // Create larger flame path
-        using var flamePath = new SKPath();
-        flamePath.MoveTo(handX, handY - 8);
-        flamePath.LineTo(handX - flameWidth, handY - 8 - flameHeight * 0.5f);
-        flamePath.LineTo(handX, handY - 8 - flameHeight);
-        flamePath.LineTo(handX + flameWidth, handY - 8 - flameHeight * 0.5f);
-        flamePath.Close();
+        // Create larger flame path using cached path
+        flamePathCache.Reset();
+        flamePathCache.MoveTo(handX, handY - 8);
+        flamePathCache.LineTo(handX - flameWidth, handY - 8 - flameHeight * 0.5f);
+        flamePathCache.LineTo(handX, handY - 8 - flameHeight);
+        flamePathCache.LineTo(handX + flameWidth, handY - 8 - flameHeight * 0.5f);
+        flamePathCache.Close();
         
         // Outermost glow layer (very soft)
         for (int i = 3; i >= 1; i--)
@@ -757,27 +762,27 @@ public class DanceMode : IVisualizerMode
             
             outerGlowPaint.Color = flameColor.WithAlpha(glowAlpha);
             outerGlowPaint.MaskFilter = SKMaskFilter.CreateBlur(SKBlurStyle.Normal, glowSize);
-            canvas.DrawPath(flamePath, outerGlowPaint);
+            canvas.DrawPath(flamePathCache, outerGlowPaint);
         }
         
         // Outer flame (random color with alpha)
         flamePaint.Color = flameColor.WithAlpha(200);
-        canvas.DrawPath(flamePath, flamePaint);
+        canvas.DrawPath(flamePathCache, flamePaint);
         
         // Inner bright core (full intensity)
         flamePaint.Color = flameColor;
-        canvas.DrawPath(flamePath, flamePaint);
+        canvas.DrawPath(flamePathCache, flamePaint);
         
         // Inner bright core (full intensity)
         flamePaint.Color = flameColor;
         
-        var innerFlamePath = new SKPath();
-        innerFlamePath.MoveTo(handX, handY - 8);
-        innerFlamePath.LineTo(handX - flameWidth * 0.5f, handY - 8 - flameHeight * 0.6f);
-        innerFlamePath.LineTo(handX, handY - 8 - flameHeight * 0.8f);
-        innerFlamePath.LineTo(handX + flameWidth * 0.5f, handY - 8 - flameHeight * 0.6f);
-        innerFlamePath.Close();
-        canvas.DrawPath(innerFlamePath, flamePaint);
+        innerFlamePathCache.Reset();
+        innerFlamePathCache.MoveTo(handX, handY - 8);
+        innerFlamePathCache.LineTo(handX - flameWidth * 0.5f, handY - 8 - flameHeight * 0.6f);
+        innerFlamePathCache.LineTo(handX, handY - 8 - flameHeight * 0.8f);
+        innerFlamePathCache.LineTo(handX + flameWidth * 0.5f, handY - 8 - flameHeight * 0.6f);
+        innerFlamePathCache.Close();
+        canvas.DrawPath(innerFlamePathCache, flamePaint);
     }
 
     private float GetBandEnergy(float[] leftSpectrum, float[] rightSpectrum, int startBin, int endBin)
@@ -796,6 +801,9 @@ public class DanceMode : IVisualizerMode
 
     private void DrawLasers(SKCanvas canvas, int width, int height)
     {
+        // Pre-create mask filter to reuse
+        using var blurFilter = SKMaskFilter.CreateBlur(SKBlurStyle.Normal, 8f);
+        
         for (int i = 0; i < laserAngles.Length; i++)
         {
             if (laserIntensities[i] < 0.05f) continue; // Skip very dim lasers
@@ -855,13 +863,18 @@ public class DanceMode : IVisualizerMode
             beamPaint.StrokeWidth = beamWidth;
             canvas.DrawLine(startX, startY, endX, endY, beamPaint);
             
-            // Draw outer glow - smaller for back lasers
+            // Draw outer glow - smaller for back lasers, reuse blur filter
             float glowWidth = (12f + laserIntensities[i] * 15f) * depth;
             glowPaint.Color = laserColors[i].WithAlpha((byte)(alpha * 0.3f));
             glowPaint.StrokeWidth = glowWidth;
-            glowPaint.MaskFilter = SKMaskFilter.CreateBlur(SKBlurStyle.Normal, 8f * depth);
+            glowPaint.MaskFilter = blurFilter;
+            glowPaint.Shader = null;
             canvas.DrawLine(startX, startY, endX, endY, glowPaint);
         }
+        
+        // Clear shader after use
+        beamPaint.Shader = null;
+        glowPaint.MaskFilter = null;
     }
 
     private void DrawBeatFlash(SKCanvas canvas, int width, int height)
