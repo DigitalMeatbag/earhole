@@ -5,6 +5,7 @@ using System.Windows.Threading;
 using earhole.Modes;
 using earhole.Services;
 using SkiaSharp;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace earhole;
 
@@ -21,7 +22,7 @@ public partial class MainWindow : Window
     private readonly ModeManagementService modeManagementService;
     private readonly UINotificationService uiNotificationService;
     private readonly KeyboardCommandHandler keyboardCommandHandler;
-    private MediaSessionManager? mediaSessionManager;
+    private readonly MediaSessionManager mediaSessionManager;
     
     // Rendering
     private System.Timers.Timer renderTimer;
@@ -42,29 +43,35 @@ public partial class MainWindow : Window
     {
         InitializeComponent();
 
-        // Initialize services
-        audioCaptureService = new AudioCaptureService();
-        beatDetectionService = new BeatDetectionService();
-        modeManagementService = new ModeManagementService();
-        uiNotificationService = new UINotificationService(StatusText, TrackInfoText, ModeInfoText, FpsText);
-        
+        // InitializeComponent must be called first so UI elements are available
+        InitializeComponent();
+
+        // Use DI container to resolve services
+        var provider = EarholeHost.BuildHost();
+        audioCaptureService = provider.GetRequiredService<AudioCaptureService>();
+        beatDetectionService = provider.GetRequiredService<BeatDetectionService>();
+        modeManagementService = provider.GetRequiredService<ModeManagementService>();
+        var uiNotificationFactory = provider.GetRequiredService<UINotificationServiceFactory>();
+        uiNotificationService = uiNotificationFactory.Create(StatusText, TrackInfoText, ModeInfoText, FpsText);
+        mediaSessionManager = provider.GetRequiredService<MediaSessionManager>();
+        var keyboardFactory = provider.GetRequiredService<KeyboardCommandHandlerFactory>();
+        keyboardCommandHandler = keyboardFactory.Create(modeManagementService, mediaSessionManager);
+
         // Setup event handlers
         audioCaptureService.AudioDetected += OnAudioDetected;
         audioCaptureService.SpectrumDataAvailable += OnSpectrumDataAvailable;
         modeManagementService.ModeChanged += OnModeChanged;
         modeManagementService.ShuffleModeChanged += OnShuffleModeChanged;
 
-        // Initialize media session manager
-        InitializeMediaSession();
-        
-        // Initialize keyboard handler after media session
-        keyboardCommandHandler = new KeyboardCommandHandler(modeManagementService, mediaSessionManager);
         keyboardCommandHandler.ToggleFullscreenRequested += (s, e) => ToggleFullscreen();
         keyboardCommandHandler.CloseRequested += (s, e) => this.Close();
         keyboardCommandHandler.ToggleModeMenuRequested += (s, e) => ToggleModeMenu();
         keyboardCommandHandler.ToggleFpsRequested += (s, e) => ToggleFps();
         keyboardCommandHandler.ToggleTrackInfoPersistenceRequested += (s, e) => ToggleTrackInfoPersistence();
         keyboardCommandHandler.StatusMessageRequested += (s, message) => uiNotificationService.ShowStatusMessage(message);
+
+        // Initialize media session manager
+        InitializeMediaSession();
 
         // Populate mode menu
         PopulateModeMenu();
@@ -118,7 +125,6 @@ public partial class MainWindow : Window
     {
         try
         {
-            mediaSessionManager = new MediaSessionManager();
             mediaSessionManager.TrackChanged += OnTrackChanged;
             mediaSessionManager.MediaPlayerChanged += OnMediaPlayerChanged;
             await mediaSessionManager.InitializeAsync();
@@ -291,8 +297,8 @@ public partial class MainWindow : Window
         }
         
         // Get spectrum data and beat state
-        float[] leftCopy = new float[SPECTRUM_RESOLUTION];
-        float[] rightCopy = new float[SPECTRUM_RESOLUTION];
+        float[] leftCopy = new float[audioCaptureService.SpectrumResolution];
+        float[] rightCopy = new float[audioCaptureService.SpectrumResolution];
         audioCaptureService.GetSpectrumData(leftCopy, rightCopy);
         bool beatCopy = beatDetectionService.IsBeat;
 

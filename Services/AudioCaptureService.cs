@@ -1,6 +1,7 @@
 using NAudio.Wave;
 using MathNet.Numerics.IntegralTransforms;
 using System.Numerics;
+using Microsoft.Extensions.Configuration;
 
 namespace earhole.Services;
 
@@ -9,13 +10,13 @@ namespace earhole.Services;
 /// </summary>
 public class AudioCaptureService : IDisposable
 {
-    private const int SPECTRUM_RESOLUTION = 1024;
-    
+    public int SpectrumResolution => spectrumResolution;
+    private readonly int spectrumResolution;
     private readonly WasapiLoopbackCapture capture;
     private readonly Thread captureThread;
     private readonly object spectrumLock = new object();
-    private readonly float[] leftSpectrum = new float[SPECTRUM_RESOLUTION];
-    private readonly float[] rightSpectrum = new float[SPECTRUM_RESOLUTION];
+    private readonly float[] leftSpectrum;
+    private readonly float[] rightSpectrum;
     private volatile bool running = true;
 
     public event EventHandler<SpectrumDataEventArgs>? SpectrumDataAvailable;
@@ -23,8 +24,11 @@ public class AudioCaptureService : IDisposable
 
     private bool audioDetectedFlag = false;
 
-    public AudioCaptureService()
+    public AudioCaptureService(Microsoft.Extensions.Configuration.IConfiguration config)
     {
+        spectrumResolution = config.GetValue<int>("Audio:SpectrumResolution", 1024);
+        leftSpectrum = new float[spectrumResolution];
+        rightSpectrum = new float[spectrumResolution];
         capture = new WasapiLoopbackCapture();
         capture.DataAvailable += OnDataAvailable;
         captureThread = new Thread(AudioCapture)
@@ -75,7 +79,7 @@ public class AudioCaptureService : IDisposable
         }
 
         // Ensure FFT size is sufficient for SPECTRUM_RESOLUTION
-        int minFftSize = SPECTRUM_RESOLUTION * 2;
+        int minFftSize = spectrumResolution * 2;
         int fftSize = NextPowerOfTwo(Math.Max(leftChannel.Length, minFftSize));
         if (fftSize < 2) return;
         Array.Resize(ref leftChannel, fftSize);
@@ -114,15 +118,15 @@ public class AudioCaptureService : IDisposable
 
     public void GetSpectrumData(float[] leftBuffer, float[] rightBuffer)
     {
-        if (leftBuffer.Length != SPECTRUM_RESOLUTION || rightBuffer.Length != SPECTRUM_RESOLUTION)
+        if (leftBuffer.Length != spectrumResolution || rightBuffer.Length != spectrumResolution)
         {
-            throw new ArgumentException($"Buffers must be size {SPECTRUM_RESOLUTION}");
+            throw new ArgumentException($"Buffers must be size {spectrumResolution}");
         }
 
         lock (spectrumLock)
         {
-            Array.Copy(leftSpectrum, leftBuffer, SPECTRUM_RESOLUTION);
-            Array.Copy(rightSpectrum, rightBuffer, SPECTRUM_RESOLUTION);
+            Array.Copy(leftSpectrum, leftBuffer, spectrumResolution);
+            Array.Copy(rightSpectrum, rightBuffer, spectrumResolution);
         }
     }
 

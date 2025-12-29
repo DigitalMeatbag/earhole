@@ -17,8 +17,10 @@ public class BeatDetectionService
     private const int BPM_HISTORY_SIZE = 8; // Track last 8 beats
     
     private float averageEnergy = 0f;
-    private float energyVariance = 0f;
     private float lastEnergy = 0f;
+    private float energyVariance = 0f;
+    private readonly float beatThreshold;
+    private readonly int bpmHistorySize;
     private int beatCooldown = 0;
     private float estimatedBPM = 120f;
     private int dynamicCooldownFrames = 8;
