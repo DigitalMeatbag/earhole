@@ -39,6 +39,8 @@ public class TwoCirclesMode : IVisualizerMode
     private int lastHeight = 0;
     private const float TrailFadeRate = 0.88f; // Multiply alpha by this each frame (faster fade to prevent ghosting)
     private const byte AlphaCutoff = 10; // Clear pixels below this alpha threshold
+    private int framesSinceFade = 0;
+    private const int FadeInterval = 1; // Fade every N frames (1 = every frame, 2 = every other frame)
     
     // Beat compression effect
     private const float CompressionAmount = 0.7f; // Compress to 70% of normal size
@@ -51,11 +53,13 @@ public class TwoCirclesMode : IVisualizerMode
     private float hueOffset = 0f;
     private const float HueCycleSpeed = 0.3f; // Degrees per frame at ~60fps
     
-    // Color configuration - dynamically updated each frame
+    // Color configuration - cached to avoid repeated HSV conversions
     private SKColor LeftOutwardColor;
     private SKColor LeftInwardColor;
     private SKColor RightOutwardColor;
     private SKColor RightInwardColor;
+    private int framesSinceColorUpdate = 0;
+    private const int ColorUpdateInterval = 2; // Update colors every N frames to reduce HSV overhead
     
     // Neutral color when not moving (always white)
     private static readonly SKColor NeutralColor = SKColors.White;
@@ -85,10 +89,15 @@ public class TwoCirclesMode : IVisualizerMode
     private readonly SKPath segmentPath = new SKPath();
     private readonly SKPaint segmentPaint = new SKPaint
     {
-        IsAntialias = true,
+        IsAntialias = false, // Disabled for performance - segments overlap anyway with Plus blend
         Style = SKPaintStyle.Fill,
         BlendMode = SKBlendMode.Plus
     };
+    
+    // Cached trig values for performance
+    private float[]? cachedCos;
+    private float[]? cachedSin;
+    private int cachedSpectrumLength = 0;
 
     public string Name => "two circles";
     public string Emoji => "♾️";
@@ -111,12 +120,17 @@ public class TwoCirclesMode : IVisualizerMode
             trailCanvas.Clear(SKColors.Transparent);
         }
 
-        // Update color cycling - each color is offset by 90 degrees to keep them distinct
-        hueOffset = (hueOffset + HueCycleSpeed) % 360f;
-        LeftOutwardColor = SKColor.FromHsv(hueOffset, 100, 100);
-        LeftInwardColor = SKColor.FromHsv((hueOffset + 90) % 360f, 100, 100);
-        RightOutwardColor = SKColor.FromHsv((hueOffset + 180) % 360f, 100, 100);
-        RightInwardColor = SKColor.FromHsv((hueOffset + 270) % 360f, 100, 100);
+        // Update color cycling - reduce frequency to save HSV conversion overhead
+        framesSinceColorUpdate++;
+        if (framesSinceColorUpdate >= ColorUpdateInterval)
+        {
+            framesSinceColorUpdate = 0;
+            hueOffset = (hueOffset + (HueCycleSpeed * ColorUpdateInterval)) % 360f;
+            LeftOutwardColor = SKColor.FromHsv(hueOffset, 100, 100);
+            LeftInwardColor = SKColor.FromHsv((hueOffset + 90) % 360f, 100, 100);
+            RightOutwardColor = SKColor.FromHsv((hueOffset + 180) % 360f, 100, 100);
+            RightInwardColor = SKColor.FromHsv((hueOffset + 270) % 360f, 100, 100);
+        }
 
         // Calculate base radius - each circle takes up about 1/4 of the smaller dimension
         targetBaseRadius = Math.Min(width, height) * 0.25f;
@@ -311,10 +325,10 @@ public class TwoCirclesMode : IVisualizerMode
     
     private void FadeTrailBitmap()
     {
-        if (trailCanvas == null) return;
+        if (trailCanvas == null || trailBitmap == null) return;
 
-        // Draw a semi-transparent rectangle to fade the entire bitmap
-        trailCanvas.DrawRect(0, 0, trailBitmap!.Width, trailBitmap.Height, fadePaint);
+        // Use DstIn blend mode for efficient alpha fade - multiplies existing alpha by fade factor
+        trailCanvas.DrawRect(0, 0, trailBitmap.Width, trailBitmap.Height, fadePaint);
     }
 
     private void UpdateRadii(float[] spectrum, ref float[] currentRadii)
@@ -337,8 +351,24 @@ public class TwoCirclesMode : IVisualizerMode
     {
         int length = Math.Max(leftSpectrum.Length, rightSpectrum.Length);
         
+        // Adaptive detail: skip every other segment when activity is low for better performance
+        // Calculate average activity across both channels
+        float totalActivity = 0f;
+        for (int i = 0; i < leftSpectrum.Length; i++)
+        {
+            totalActivity += Math.Abs(smoothedVelocitiesLeft[i]);
+        }
+        for (int i = 0; i < rightSpectrum.Length; i++)
+        {
+            totalActivity += Math.Abs(smoothedVelocitiesRight[i]);
+        }
+        float avgActivity = totalActivity / (leftSpectrum.Length + rightSpectrum.Length);
+        
+        // Use full detail when activity is high, reduce by half when low
+        int step = avgActivity > 1.5f ? 1 : 2;
+        
         // Interleave drawing segments from both circles
-        for (int i = 0; i < length; i++)
+        for (int i = 0; i < length; i += step)
         {
             // Draw left circle segment
             if (i < leftSpectrum.Length)
@@ -362,6 +392,22 @@ public class TwoCirclesMode : IVisualizerMode
                             ref float[] currentRadii, ref float[] previousRadii, ref float[] smoothedVelocities,
                             float renderBaseRadius, SKColor leftOutColor, SKColor leftInColor, float alphaMultiplier)
     {
+        // Initialize or update cached trig values if spectrum length changed
+        if (cachedCos == null || cachedSpectrumLength != spectrumLength)
+        {
+            cachedSpectrumLength = spectrumLength;
+            cachedCos = new float[spectrumLength + 1];
+            cachedSin = new float[spectrumLength + 1];
+            
+            float anglePerSegment = 2f * MathF.PI / spectrumLength;
+            for (int j = 0; j <= spectrumLength; j++)
+            {
+                float angle = -MathF.PI / 2f + (anglePerSegment * j);
+                cachedCos[j] = MathF.Cos(angle);
+                cachedSin[j] = MathF.Sin(angle);
+            }
+        }
+        
         // Calculate instantaneous velocity (rate of change)
         float instantVelocity = currentRadii[i] - previousRadii[i];
         
@@ -388,24 +434,20 @@ public class TwoCirclesMode : IVisualizerMode
             color = NeutralColor;
         }
 
-        // Calculate angles for this segment
-        float anglePerSegment = 2f * MathF.PI / spectrumLength;
-        float angle1 = -MathF.PI / 2f + (anglePerSegment * i);
-        float angle2 = angle1 + anglePerSegment;
-        
-        // Calculate inner and outer points for this segment
+        // Use cached trig values
         float innerRadius = renderBaseRadius;
         float outerRadius = currentRadii[i];
         
-        float x1Inner = centerX + innerRadius * MathF.Cos(angle1);
-        float y1Inner = centerY + innerRadius * MathF.Sin(angle1);
-        float x1Outer = centerX + outerRadius * MathF.Cos(angle1);
-        float y1Outer = centerY + outerRadius * MathF.Sin(angle1);
+        int i2 = i + 1;
+        float x1Inner = centerX + innerRadius * cachedCos![i];
+        float y1Inner = centerY + innerRadius * cachedSin![i];
+        float x1Outer = centerX + outerRadius * cachedCos[i];
+        float y1Outer = centerY + outerRadius * cachedSin[i];
         
-        float x2Inner = centerX + innerRadius * MathF.Cos(angle2);
-        float y2Inner = centerY + innerRadius * MathF.Sin(angle2);
-        float x2Outer = centerX + outerRadius * MathF.Cos(angle2);
-        float y2Outer = centerY + outerRadius * MathF.Sin(angle2);
+        float x2Inner = centerX + innerRadius * cachedCos[i2];
+        float y2Inner = centerY + innerRadius * cachedSin[i2];
+        float x2Outer = centerX + outerRadius * cachedCos[i2];
+        float y2Outer = centerY + outerRadius * cachedSin[i2];
 
         // Draw segment as a quad using cached path and paint
         segmentPath.Reset();
