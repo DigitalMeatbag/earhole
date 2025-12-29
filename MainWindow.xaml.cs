@@ -25,7 +25,7 @@ public partial class MainWindow : Window
     private float[] leftSpectrum = new float[256]; // FFT bins for left channel
     private float[] rightSpectrum = new float[256]; // FFT bins for right channel
     private object spectrumLock = new object();
-    private EarholeLoopbackCapture capture;
+    private WasapiLoopbackCapture capture;
     private Thread captureThread;
     private System.Timers.Timer timer;
     private System.Timers.Timer shuffleTimer;
@@ -112,7 +112,7 @@ public partial class MainWindow : Window
 
         SkiaView.PaintSurface += OnPaint;
 
-        capture = new EarholeLoopbackCapture();
+        capture = new WasapiLoopbackCapture();
         capture.DataAvailable += OnDataAvailable;
         captureThread = new Thread(AudioCapture);
         captureThread.IsBackground = true;
@@ -130,6 +130,24 @@ public partial class MainWindow : Window
 
         // Initialize media session manager
         InitializeMediaSession();
+    }
+
+    private void StartTrackInfoFadeTimer()
+    {
+        trackInfoFadeTimer?.Stop();
+        trackInfoFadeTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(3) };
+        trackInfoFadeTimer.Tick += (s, e) =>
+        {
+            var fadeOut = new DoubleAnimation
+            {
+                From = 0.8,
+                To = 0.0,
+                Duration = TimeSpan.FromSeconds(0.5)
+            };
+            TrackInfoText.BeginAnimation(TextBlock.OpacityProperty, fadeOut);
+            trackInfoFadeTimer?.Stop();
+        };
+        trackInfoFadeTimer.Start();
     }
 
     private async void InitializeMediaSession()
@@ -166,20 +184,7 @@ public partial class MainWindow : Window
                 TrackInfoText.BeginAnimation(TextBlock.OpacityProperty, fadeIn);
                 
                 // Setup fade out after 3 seconds
-                trackInfoFadeTimer?.Stop();
-                trackInfoFadeTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(3) };
-                trackInfoFadeTimer.Tick += (s, e) =>
-                {
-                    var fadeOut = new DoubleAnimation
-                    {
-                        From = 0.8,
-                        To = 0.0,
-                        Duration = TimeSpan.FromSeconds(0.5)
-                    };
-                    TrackInfoText.BeginAnimation(TextBlock.OpacityProperty, fadeOut);
-                    trackInfoFadeTimer?.Stop();
-                };
-                trackInfoFadeTimer.Start();
+                StartTrackInfoFadeTimer();
             }
             else
             {
@@ -218,46 +223,30 @@ public partial class MainWindow : Window
             ShowModeInfo(currentMode);
         }
 
-        if (ModeListBox.SelectedIndex >= 0)
+        // Hide the menu after selection
+        isModeMenuVisible = false;
+        ModeMenu.Visibility = Visibility.Collapsed;
+        
+        // Restore track info visibility based on mode
+        if (!string.IsNullOrEmpty(TrackInfoText.Text))
         {
-            // Hide the menu after selection
-            isModeMenuVisible = false;
-            ModeMenu.Visibility = Visibility.Collapsed;
-            
-            // Restore track info visibility based on mode
-            if (!string.IsNullOrEmpty(TrackInfoText.Text))
+            if (isTrackInfoPersistent)
             {
-                if (isTrackInfoPersistent)
+                // Persistent mode: keep visible
+                TrackInfoText.Opacity = 0.8;
+            }
+            else if (mediaSessionManager?.CurrentTrack != null)
+            {
+                // Temporary mode with active track: trigger new fade cycle
+                var fadeIn = new DoubleAnimation
                 {
-                    // Persistent mode: keep visible
-                    TrackInfoText.Opacity = 0.8;
-                }
-                else if (mediaSessionManager?.CurrentTrack != null)
-                {
-                    // Temporary mode with active track: trigger new fade cycle
-                    var fadeIn = new DoubleAnimation
-                    {
-                        From = 0.0,
-                        To = 0.8,
-                        Duration = TimeSpan.FromSeconds(0.5)
-                    };
-                    TrackInfoText.BeginAnimation(TextBlock.OpacityProperty, fadeIn);
-                    
-                    trackInfoFadeTimer?.Stop();
-                    trackInfoFadeTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(3) };
-                    trackInfoFadeTimer.Tick += (s, args) =>
-                    {
-                        var fadeOut = new DoubleAnimation
-                        {
-                            From = 0.8,
-                            To = 0.0,
-                            Duration = TimeSpan.FromSeconds(0.5)
-                        };
-                        TrackInfoText.BeginAnimation(TextBlock.OpacityProperty, fadeOut);
-                        trackInfoFadeTimer?.Stop();
-                    };
-                    trackInfoFadeTimer.Start();
-                }
+                    From = 0.0,
+                    To = 0.8,
+                    Duration = TimeSpan.FromSeconds(0.5)
+                };
+                TrackInfoText.BeginAnimation(TextBlock.OpacityProperty, fadeIn);
+                
+                StartTrackInfoFadeTimer();
             }
         }
     }
@@ -369,7 +358,7 @@ public partial class MainWindow : Window
                 fadeTimer.Start();
             });
 
-            // Start a delay timer for 1 second before shutting down
+            // Start a delay timer for 2 seconds before shutting down
             var delayTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(2) };
             delayTimer.Tick += (s, args) =>
             {
@@ -438,20 +427,7 @@ public partial class MainWindow : Window
                 if (!string.IsNullOrEmpty(TrackInfoText.Text) && TrackInfoText.Text != "🎵 Unknown Track")
                 {
                     // Start the temporary mode timer
-                    trackInfoFadeTimer?.Stop();
-                    trackInfoFadeTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(3) };
-                    trackInfoFadeTimer.Tick += (s, args) =>
-                    {
-                        var fadeOut = new DoubleAnimation
-                        {
-                            From = 0.8,
-                            To = 0.0,
-                            Duration = TimeSpan.FromSeconds(0.5)
-                        };
-                        TrackInfoText.BeginAnimation(TextBlock.OpacityProperty, fadeOut);
-                        trackInfoFadeTimer?.Stop();
-                    };
-                    trackInfoFadeTimer.Start();
+                    StartTrackInfoFadeTimer();
                 }
                 else
                 {
@@ -521,12 +497,9 @@ public partial class MainWindow : Window
                     timer.Start();
                 });
             }
-            // Process only if there are non-zero samples
-            Console.WriteLine("Received audio data...");
         }
         else
         {
-            Console.WriteLine("Silence detected...");
             return; // No valid audio data
         }
 
@@ -553,10 +526,6 @@ public partial class MainWindow : Window
         // FFT for right channel
         var rightComplex = rightChannel.Select(x => new Complex(x, 0)).ToArray();
         Fourier.Forward(rightComplex, FourierOptions.NoScaling);
-
-        float maxMagLeft = (float)leftComplex.Max(c => c.Magnitude);
-        float maxMagRight = (float)rightComplex.Max(c => c.Magnitude);
-        Console.WriteLine($"FFT done, size: {leftComplex.Length}, max mag L: {maxMagLeft}, R: {maxMagRight}");
 
         lock (this.spectrumLock)
         {
@@ -625,8 +594,6 @@ public partial class MainWindow : Window
 
     private void OnPaint(object sender, SkiaSharp.Views.Desktop.SKPaintSurfaceEventArgs e)
     {
-        Console.WriteLine("Painting...");
-
         var canvas = e.Surface.Canvas;
         int width = e.Info.Width;
         int height = e.Info.Height;

@@ -20,7 +20,9 @@ public class WaveMode : IVisualizerMode
     private readonly List<BeatParticle> particles = new List<BeatParticle>();
     private readonly Random random = new Random();
 
-    public string Name => "the wave";    public string Emoji => "🌊";
+    public string Name => "the wave";
+    public string Emoji => "🌊";
+
     public void Render(SKCanvas canvas, int width, int height, float[] leftSpectrum, float[] rightSpectrum, bool isBeat)
     {
         canvas.Clear(SKColors.Black);

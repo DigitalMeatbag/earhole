@@ -101,8 +101,8 @@ public class ParticleMode : IVisualizerMode
             // Calculate alpha based on intensity and beat pulse
             float alpha = Math.Clamp(intensity + beatPulse * 0.5f, 0.1f, 1.0f);
 
-            // Render particle with glow
-            var paint = new SKPaint
+            // Render particle with glow using additive blending
+            using var paint = new SKPaint
             {
                 IsAntialias = true,
                 BlendMode = SKBlendMode.Plus // Additive blending for glow
@@ -124,7 +124,7 @@ public class ParticleMode : IVisualizerMode
         // Draw subtle ring guides when quiet
         if (beatPulse < 0.1f)
         {
-            var guidePaint = new SKPaint
+            using var guidePaint = new SKPaint
             {
                 Style = SKPaintStyle.Stroke,
                 StrokeWidth = 1,
