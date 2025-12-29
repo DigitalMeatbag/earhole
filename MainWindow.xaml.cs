@@ -7,6 +7,7 @@ using System.Numerics;
 using System.Windows.Media.Animation;
 using System.Windows.Threading;
 using earhole.Modes;
+using SkiaSharp;
 
 namespace earhole;
 
@@ -22,7 +23,7 @@ public partial class MainWindow : Window
         return p;
     }
 
-    private const int SPECTRUM_RESOLUTION = 1024; // Number of frequency bins for spectrum analysis (higher = smoother but more CPU)
+    private const int SPECTRUM_RESOLUTION = 512; // Number of frequency bins for spectrum analysis (higher = smoother but more CPU)
     private float[] leftSpectrum = new float[SPECTRUM_RESOLUTION]; // FFT bins for left channel
     private float[] rightSpectrum = new float[SPECTRUM_RESOLUTION]; // FFT bins for right channel
     private object spectrumLock = new object();
@@ -619,7 +620,19 @@ public partial class MainWindow : Window
     }
 
     private void OnPaint(object sender, SkiaSharp.Views.Desktop.SKPaintSurfaceEventArgs e)
-    {        // Update FPS counter
+    {        
+        var canvas = e.Surface.Canvas;
+        int width = e.Info.Width;
+        int height = e.Info.Height;
+
+        // Skip expensive rendering when menu is visible to keep UI responsive
+        if (isModeMenuVisible)
+        {
+            canvas.Clear(SKColors.Black);
+            return;
+        }
+        
+        // Update FPS counter
         frameCount++;
         var now = DateTime.Now;
         var elapsed = (now - lastFpsUpdate).TotalSeconds;
@@ -635,10 +648,6 @@ public partial class MainWindow : Window
             }
         }
         
-        var canvas = e.Surface.Canvas;
-        int width = e.Info.Width;
-        int height = e.Info.Height;
-
         // Copy spectrum data outside of lock to minimize lock contention
         float[] leftCopy = new float[SPECTRUM_RESOLUTION];
         float[] rightCopy = new float[SPECTRUM_RESOLUTION];
