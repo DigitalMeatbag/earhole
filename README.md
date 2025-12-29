@@ -90,6 +90,40 @@ WASAPI Loopback Capture
 
 Implementation was accelerated using an AI coding agent; system design, architecture, performance tuning, and validation were directed and verified manually.
 
+
+## Configuration File
+
+The application uses a configuration file named `appsettings.json` located in the root of the project directory. This file allows you to customize runtime settings without modifying code.
+
+### Example: appsettings.json
+
+```json
+{
+      "Audio": {
+            "SpectrumResolution": 1024
+      },
+      "BeatDetection": {
+            "Threshold": 1.4,
+            "BpmHistorySize": 8
+      },
+      "ModeManagement": {
+            "ShuffleActive": true
+      },
+      "UI": {
+            "FadeDurationMs": 1200
+      }
+}
+```
+
+**Editable Options:**
+- `Audio:SpectrumResolution`: Number of FFT bins for spectrum analysis (higher = more detail, more CPU)
+- `BeatDetection:Threshold`: Sensitivity for beat detection (lower = more sensitive)
+- `BeatDetection:BpmHistorySize`: Number of beats to track for BPM estimation
+- `ModeManagement:ShuffleActive`: Whether shuffle mode is enabled by default
+- `UI:FadeDurationMs`: Duration of UI fade animations in milliseconds
+
+You can adjust these values to tune performance, sensitivity, and UI behavior. Changes take effect on next app launch.
+
 ## How to Run
 
 ### Option 1: Run from Source (Requires .NET SDK)
