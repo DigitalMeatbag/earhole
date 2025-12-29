@@ -22,8 +22,9 @@ public partial class MainWindow : Window
         return p;
     }
 
-    private float[] leftSpectrum = new float[512]; // FFT bins for left channel (increased for smoother visualization)
-    private float[] rightSpectrum = new float[512]; // FFT bins for right channel (increased for smoother visualization)
+    private const int SPECTRUM_RESOLUTION = 1024; // Number of frequency bins for spectrum analysis (higher = smoother but more CPU)
+    private float[] leftSpectrum = new float[SPECTRUM_RESOLUTION]; // FFT bins for left channel
+    private float[] rightSpectrum = new float[SPECTRUM_RESOLUTION]; // FFT bins for right channel
     private object spectrumLock = new object();
     private WasapiLoopbackCapture capture;
     private Thread captureThread;
@@ -43,6 +44,12 @@ public partial class MainWindow : Window
     private bool isTrackInfoPersistent = false;
     private DispatcherTimer? trackInfoFadeTimer;
     private DispatcherTimer? modeInfoFadeTimer;
+    
+    // FPS tracking
+    private bool showFps = false;
+    private DateTime lastFpsUpdate = DateTime.Now;
+    private int frameCount = 0;
+    private double currentFps = 0;
 
     // Beat detection
     private bool isBeat = false;
@@ -394,6 +401,16 @@ public partial class MainWindow : Window
             ModeMenu.Visibility = isModeMenuVisible ? Visibility.Visible : Visibility.Collapsed;
             e.Handled = true;
         }
+        else if (e.Key == Key.F3) // Toggle FPS display
+        {
+            showFps = !showFps;
+            FpsText.Opacity = showFps ? 0.8 : 0;
+            if (!showFps)
+            {
+                FpsText.Text = "";
+            }
+            e.Handled = true;
+        }
         else if (e.Key == Key.I) // Toggle persistent track info
         {
             isTrackInfoPersistent = !isTrackInfoPersistent;
@@ -593,8 +610,22 @@ public partial class MainWindow : Window
     }
 
     private void OnPaint(object sender, SkiaSharp.Views.Desktop.SKPaintSurfaceEventArgs e)
-    {
-        var canvas = e.Surface.Canvas;
+    {        // Update FPS counter
+        frameCount++;
+        var now = DateTime.Now;
+        var elapsed = (now - lastFpsUpdate).TotalSeconds;
+        if (elapsed >= 0.5) // Update FPS display twice per second
+        {
+            currentFps = frameCount / elapsed;
+            frameCount = 0;
+            lastFpsUpdate = now;
+            
+            if (showFps)
+            {
+                Dispatcher.BeginInvoke(() => FpsText.Text = $"{currentFps:F1} fps");
+            }
+        }
+                var canvas = e.Surface.Canvas;
         int width = e.Info.Width;
         int height = e.Info.Height;
 

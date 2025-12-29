@@ -56,6 +56,7 @@ The repository includes pre-built releases that require no additional installati
 - **Q** or **Esc**: Quit the application
 - **`** (backtick): Toggle mode menu to switch visualizers
 - **I**: Toggle between temporary (default) and persistent track info display
+- **F3**: Toggle FPS counter display
 - **Window Close Button**: Normal window close
 
 ## Now Playing Integration

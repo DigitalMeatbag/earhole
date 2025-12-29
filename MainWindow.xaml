@@ -76,5 +76,14 @@
                    TextAlignment="Right"
                    Margin="10"
                    Opacity="0" />
+        <TextBlock x:Name="FpsText" 
+                   FontSize="16" 
+                   FontWeight="SemiBold" 
+                   Foreground="White" 
+                   HorizontalAlignment="Right" 
+                   VerticalAlignment="Bottom" 
+                   TextAlignment="Right"
+                   Margin="10"
+                   Opacity="0" />
     </Grid>
 </Window>
