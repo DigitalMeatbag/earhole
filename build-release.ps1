@@ -15,10 +15,12 @@ if ($currentBranch -ne "main") {
 }
 Write-Host "On main branch - proceeding with build" -ForegroundColor Green
 
-# Step 1: Clean up old ZIP files in publish directory
-Write-Host "Cleaning up old ZIP files..." -ForegroundColor Yellow
+# Step 1: Clean up publish directory
+Write-Host "Cleaning publish directory..." -ForegroundColor Yellow
 if (Test-Path publish) {
-    Get-ChildItem publish\*.zip | Remove-Item -Force
+    Remove-Item publish\* -Recurse -Force
+} else {
+    New-Item -ItemType Directory -Path publish | Out-Null
 }
 
 # Step 2: Build in Release mode
