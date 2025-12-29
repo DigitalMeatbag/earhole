@@ -39,6 +39,9 @@ public class WaveMode : IVisualizerMode
         IsAntialias = true,
         Style = SKPaintStyle.Stroke
     };
+    
+    private readonly SKPath rightPath = new SKPath();
+    private readonly SKPath leftPath = new SKPath();
 
     public string Name => "the wave";
     public string Emoji => "🌊";
@@ -104,7 +107,7 @@ public class WaveMode : IVisualizerMode
         float maxAmplitude = height / 2f;
         
         // Create path for right channel (goes upward)
-        using var rightPath = new SKPath();
+        rightPath.Reset();
         float firstRightValue = rightSpectrum[0];
         float firstRightAmplitude = Math.Min((float)Math.Log(1 + firstRightValue) * (height / 8f), maxAmplitude);
         rightPath.MoveTo(0, centerY - firstRightAmplitude);
@@ -118,7 +121,7 @@ public class WaveMode : IVisualizerMode
         }
 
         // Create path for left channel (goes downward)
-        using var leftPath = new SKPath();
+        leftPath.Reset();
         float firstLeftValue = leftSpectrum[0];
         float firstLeftAmplitude = Math.Min((float)Math.Log(1 + firstLeftValue) * (height / 8f), maxAmplitude);
         leftPath.MoveTo(0, centerY + firstLeftAmplitude);

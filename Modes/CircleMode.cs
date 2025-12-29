@@ -27,6 +27,9 @@ public class CircleMode : IVisualizerMode
         IsAntialias = true,
         Style = SKPaintStyle.Fill
     };
+    
+    private readonly SKPath circlePath = new SKPath();
+    private readonly SKPath segmentPath = new SKPath();
 
     public string Name => "the circle";
     public string Emoji => "⭕";
@@ -69,11 +72,10 @@ public class CircleMode : IVisualizerMode
         }
 
         // Draw the circle as connected segments
-        using (var path = new SKPath())
-        {
-            bool firstPoint = true;
+        circlePath.Reset();
+        bool firstPoint = true;
 
-            for (int i = 0; i <= spectrum.Length; i++)
+        for (int i = 0; i <= spectrum.Length; i++)
             {
                 // Wrap around to close the circle
                 int index = i % spectrum.Length;
@@ -87,22 +89,21 @@ public class CircleMode : IVisualizerMode
                 float x = centerX + radius * MathF.Cos(angle);
                 float y = centerY + radius * MathF.Sin(angle);
 
-                if (firstPoint)
-                {
-                    path.MoveTo(x, y);
-                    firstPoint = false;
-                }
-                else
-                {
-                    path.LineTo(x, y);
-                }
+            if (firstPoint)
+            {
+                circlePath.MoveTo(x, y);
+                firstPoint = false;
             }
-
-            path.Close();
-
-            // Draw the filled circle shape with white outline
-            canvas.DrawPath(path, fillPaint);
+            else
+            {
+                circlePath.LineTo(x, y);
+            }
         }
+
+        circlePath.Close();
+
+        // Fill the circle with black
+        canvas.DrawPath(circlePath, fillPaint);
 
         // Draw individual colored segments based on velocity
         for (int i = 0; i < spectrum.Length; i++)
@@ -155,18 +156,16 @@ public class CircleMode : IVisualizerMode
             float x2Outer = centerX + outerRadius * MathF.Cos(angle2);
             float y2Outer = centerY + outerRadius * MathF.Sin(angle2);
 
-            // Draw segment as a quad
-            using (var path = new SKPath())
-            {
-                path.MoveTo(x1Inner, y1Inner);
-                path.LineTo(x1Outer, y1Outer);
-                path.LineTo(x2Outer, y2Outer);
-                path.LineTo(x2Inner, y2Inner);
-                path.Close();
+            // Draw segment as a quad using cached path
+            segmentPath.Reset();
+            segmentPath.MoveTo(x1Inner, y1Inner);
+            segmentPath.LineTo(x1Outer, y1Outer);
+            segmentPath.LineTo(x2Outer, y2Outer);
+            segmentPath.LineTo(x2Inner, y2Inner);
+            segmentPath.Close();
 
-                segmentPaint.Color = color;
-                canvas.DrawPath(path, segmentPaint);
-            }
+            segmentPaint.Color = color;
+            canvas.DrawPath(segmentPath, segmentPaint);
         }
 
         // Update previous radii for next frame
