@@ -89,7 +89,7 @@ earhole automatically detects and displays track information from media players 
 ## Visualization Modes
 
 - **🔀 Shuffle** (default): Automatically cycles through all visualizer modes every 30 seconds with true randomization; never shows the same mode twice in a row. Perfect for variety during long listening sessions.
-- **📊 Spectrum Bars**: 512-bin spectrum analyzer with ROYGBIV coloring; bars scale with volume and frequency content.
+- **📊 Spectrum Bars**: 1024-bin spectrum analyzer with ROYGBIV coloring; bars scale with volume and frequency content.
 	- ![Spectrum Bars](assets/earhole-spectrum-bars.png)
 - **✨ Particles**: Audio-reactive particle field launched from the bottom; color and velocity respond to frequency/intensity.
 	- ![Particles](assets/earhole-particles.png)
