@@ -293,42 +293,20 @@ public class TwoCirclesMode : IVisualizerMode
         return NeutralColor;
     }
 
+    // Cached paint for fade effect
+    private readonly SKPaint fadePaint = new SKPaint
+    {
+        Color = SKColors.White.WithAlpha((byte)(255 * 0.88f)),
+        BlendMode = SKBlendMode.DstIn
+    };
+    
     private void FadeTrailBitmap()
     {
         if (trailBitmap == null) return;
 
-        // Create a temporary canvas to apply fade effect
-        using var tempSurface = SKSurface.Create(new SKImageInfo(trailBitmap.Width, trailBitmap.Height));
-        var tempCanvas = tempSurface.Canvas;
-        
-        // Draw existing bitmap with reduced alpha
-        using var fadePaint = new SKPaint
-        {
-            Color = SKColors.White.WithAlpha((byte)(255 * TrailFadeRate)),
-            BlendMode = SKBlendMode.DstIn // Multiply destination alpha
-        };
-        
-        tempCanvas.Clear(SKColors.Transparent);
-        tempCanvas.DrawBitmap(trailBitmap, 0, 0);
-        tempCanvas.DrawRect(0, 0, trailBitmap.Width, trailBitmap.Height, fadePaint);
-        
-        // Copy result back to trail bitmap
-        using var snapshot = tempSurface.Snapshot();
-        using var snapshotCanvas = new SKCanvas(trailBitmap);
-        snapshotCanvas.Clear(SKColors.Transparent);
-        snapshotCanvas.DrawImage(snapshot, 0, 0);
-        
-        // Clear very faint pixels to prevent ghosting
-        using var cutoffCanvas = new SKCanvas(trailBitmap);
-        using var cutoffPaint = new SKPaint
-        {
-            Color = SKColors.White.WithAlpha(AlphaCutoff),
-            BlendMode = SKBlendMode.DstOut, // Remove pixels below threshold
-            IsAntialias = false
-        };
-        
-        // Apply threshold by drawing with DstOut mode
-        cutoffCanvas.DrawRect(0, 0, trailBitmap.Width, trailBitmap.Height, cutoffPaint);
+        // Draw a semi-transparent rectangle to fade the entire bitmap
+        using var canvas = new SKCanvas(trailBitmap);
+        canvas.DrawRect(0, 0, trailBitmap.Width, trailBitmap.Height, fadePaint);
     }
 
     private void UpdateRadii(float[] spectrum, ref float[] currentRadii)

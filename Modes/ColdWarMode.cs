@@ -15,6 +15,26 @@ public class ColdWarMode : IVisualizerMode
     private float scaleY = 1f;
     private readonly List<Explosion> explosions = new List<Explosion>();
     private readonly List<Missile> missiles = new List<Missile>();
+    
+    // Cached paint objects for performance
+    private readonly SKPaint missilePaint = new SKPaint
+    {
+        IsAntialias = true,
+        StrokeWidth = 2,
+        Style = SKPaintStyle.Stroke
+    };
+    
+    private readonly SKPaint explosionPaint = new SKPaint
+    {
+        IsAntialias = true,
+        Style = SKPaintStyle.Fill
+    };
+    
+    private readonly SKPaint corePaint = new SKPaint
+    {
+        IsAntialias = true,
+        Style = SKPaintStyle.Fill
+    };
 
     // NATO countries (blue)
     private static readonly HashSet<string> NATOCountries = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
@@ -237,15 +257,9 @@ public class ColdWarMode : IVisualizerMode
             float y = (1 - t) * (1 - t) * missile.Start.Y + 2 * (1 - t) * t * missile.ControlPoint.Y + t * t * missile.End.Y;
 
             SKColor missileColor = missile.Alliance == Alliance.Western ? new SKColor(100, 150, 255) : new SKColor(255, 100, 100);
-            using var paint = new SKPaint
-            {
-                Color = missileColor,
-                IsAntialias = true,
-                StrokeWidth = 2,
-                Style = SKPaintStyle.Stroke
-            };
+            missilePaint.Color = missileColor;
 
-            canvas.DrawCircle(x, y, 3, paint);
+            canvas.DrawCircle(x, y, 3, missilePaint);
         }
 
         // Update and draw explosions
@@ -275,23 +289,12 @@ public class ColdWarMode : IVisualizerMode
 
             SKColor explosionColor = new SKColor(brightR, brightG, brightB, alpha);
 
-            using var paint = new SKPaint
-            {
-                Color = explosionColor,
-                IsAntialias = true,
-                Style = SKPaintStyle.Fill
-            };
-
-            canvas.DrawCircle(explosion.Position, radius, paint);
+            explosionPaint.Color = explosionColor;
+            canvas.DrawCircle(explosion.Position, radius, explosionPaint);
 
             // Inner bright core (also affected by brightness)
             byte coreAlpha = (byte)Math.Min(255, alpha * 0.8f * explosion.Brightness);
-            using var corePaint = new SKPaint
-            {
-                Color = new SKColor(255, 255, 255, coreAlpha),
-                IsAntialias = true,
-                Style = SKPaintStyle.Fill
-            };
+            corePaint.Color = new SKColor(255, 255, 255, coreAlpha);
             canvas.DrawCircle(explosion.Position, radius * 0.3f, corePaint);
         }
     }

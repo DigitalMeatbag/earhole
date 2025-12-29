@@ -31,6 +31,7 @@ public partial class MainWindow : Window
     private System.Timers.Timer timer;
     private System.Timers.Timer shuffleTimer;
     private volatile bool running = true;
+    private volatile bool renderPending = false; // Prevent multiple render requests
     private bool isFullscreen = false;
     private bool audioDetected = false;
     private Storyboard fadeStoryboard;
@@ -125,9 +126,20 @@ public partial class MainWindow : Window
         captureThread.IsBackground = true;
         captureThread.Start();
 
-        // Timer to force repaint
-        timer = new System.Timers.Timer(100);
-        timer.Elapsed += (s, e) => Dispatcher.BeginInvoke(() => SkiaView.InvalidateVisual());
+        // Timer to force repaint at ~60fps (16ms) with frame skip protection
+        timer = new System.Timers.Timer(16);
+        timer.Elapsed += (s, e) =>
+        {
+            if (!renderPending)
+            {
+                renderPending = true;
+                Dispatcher.BeginInvoke(() =>
+                {
+                    SkiaView.InvalidateVisual();
+                    renderPending = false;
+                }, DispatcherPriority.Render);
+            }
+        };
         timer.Start();
 
         this.Closing += MainWindow_Closing;
@@ -604,9 +616,6 @@ public partial class MainWindow : Window
                 this.isBeat = false;
             }
         }
-
-        // Invalidate the view to trigger repaint
-        Dispatcher.BeginInvoke(() => SkiaView.InvalidateVisual());
     }
 
     private void OnPaint(object sender, SkiaSharp.Views.Desktop.SKPaintSurfaceEventArgs e)
@@ -622,17 +631,27 @@ public partial class MainWindow : Window
             
             if (showFps)
             {
-                Dispatcher.BeginInvoke(() => FpsText.Text = $"{currentFps:F1} fps");
+                FpsText.Text = $"{currentFps:F1} fps";
             }
         }
-                var canvas = e.Surface.Canvas;
+        
+        var canvas = e.Surface.Canvas;
         int width = e.Info.Width;
         int height = e.Info.Height;
 
-        // Use the current mode to render the visualization
+        // Copy spectrum data outside of lock to minimize lock contention
+        float[] leftCopy = new float[SPECTRUM_RESOLUTION];
+        float[] rightCopy = new float[SPECTRUM_RESOLUTION];
+        bool beatCopy;
+        
         lock (this.spectrumLock)
         {
-            currentMode.Render(canvas, width, height, this.leftSpectrum, this.rightSpectrum, this.isBeat);
+            Array.Copy(this.leftSpectrum, leftCopy, SPECTRUM_RESOLUTION);
+            Array.Copy(this.rightSpectrum, rightCopy, SPECTRUM_RESOLUTION);
+            beatCopy = this.isBeat;
         }
+
+        // Render without holding the lock
+        currentMode.Render(canvas, width, height, leftCopy, rightCopy, beatCopy);
     }
 }

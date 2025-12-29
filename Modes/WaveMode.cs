@@ -19,6 +19,26 @@ public class WaveMode : IVisualizerMode
 
     private readonly List<BeatParticle> particles = new List<BeatParticle>();
     private readonly Random random = new Random();
+    
+    // Cached paint objects
+    private readonly SKPaint glowPaint = new SKPaint
+    {
+        IsAntialias = true,
+        Style = SKPaintStyle.Fill
+    };
+    
+    private readonly SKPaint particlePaint = new SKPaint
+    {
+        IsAntialias = true,
+        Style = SKPaintStyle.Fill
+    };
+    
+    private readonly SKPaint wavePaint = new SKPaint
+    {
+        StrokeWidth = 2f,
+        IsAntialias = true,
+        Style = SKPaintStyle.Stroke
+    };
 
     public string Name => "the wave";
     public string Emoji => "🌊";
@@ -62,22 +82,12 @@ public class WaveMode : IVisualizerMode
                 float glowSize = particle.Size * (1 + layer * 0.3f);
                 byte glowAlpha = (byte)(particle.Alpha * 50 / layer);
                 
-                using var glowPaint = new SKPaint
-                {
-                    Color = particle.Color.WithAlpha(glowAlpha),
-                    IsAntialias = true,
-                    Style = SKPaintStyle.Fill
-                };
+                glowPaint.Color = particle.Color.WithAlpha(glowAlpha);
                 canvas.DrawCircle(particle.Position, glowSize, glowPaint);
             }
 
             // Draw core particle
-            using var particlePaint = new SKPaint
-            {
-                Color = particle.Color.WithAlpha((byte)(particle.Alpha * 255)),
-                IsAntialias = true,
-                Style = SKPaintStyle.Fill
-            };
+            particlePaint.Color = particle.Color.WithAlpha((byte)(particle.Alpha * 255));
             canvas.DrawCircle(particle.Position, particle.Size, particlePaint);
         }
 
@@ -87,7 +97,7 @@ public class WaveMode : IVisualizerMode
         // Colors: red for right, blue for left, white on beat
         var rightColor = isBeat ? SKColors.White : SKColors.Red;
         var leftColor = isBeat ? SKColors.White : SKColors.Blue;
-        var strokeWidth = isBeat ? 3f : 2f; // Slightly thicker on beat
+        wavePaint.StrokeWidth = isBeat ? 3f : 2f; // Slightly thicker on beat
 
         // Calculate center line and maximum allowed amplitude
         float centerY = height / 2f;
@@ -122,27 +132,11 @@ public class WaveMode : IVisualizerMode
         }
 
         // Draw both waveforms with separate colors
-        using (var rightPaint = new SKPaint
-        {
-            Color = rightColor,
-            StrokeWidth = strokeWidth,
-            IsAntialias = true,
-            Style = SKPaintStyle.Stroke
-        })
-        {
-            canvas.DrawPath(rightPath, rightPaint);
-        }
+        wavePaint.Color = rightColor;
+        canvas.DrawPath(rightPath, wavePaint);
 
-        using (var leftPaint = new SKPaint
-        {
-            Color = leftColor,
-            StrokeWidth = strokeWidth,
-            IsAntialias = true,
-            Style = SKPaintStyle.Stroke
-        })
-        {
-            canvas.DrawPath(leftPath, leftPaint);
-        }
+        wavePaint.Color = leftColor;
+        canvas.DrawPath(leftPath, wavePaint);
     }
 
     private SKColor GetRandomColor()

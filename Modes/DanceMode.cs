@@ -90,6 +90,87 @@ public class DanceMode : IVisualizerMode
     private const float LEG_SMOOTHING = 0.15f;
     private const float ARM_SMOOTHING = 0.2f;
     private const float TORSO_SMOOTHING = 0.1f;
+    
+    // Cached paint objects for performance
+    private readonly SKPaint dancerPaint = new SKPaint
+    {
+        Color = SKColors.White,
+        StrokeWidth = 8,
+        Style = SKPaintStyle.Stroke,
+        IsAntialias = true,
+        StrokeCap = SKStrokeCap.Round
+    };
+    
+    private readonly SKPaint bgPaint = new SKPaint
+    {
+        Color = new SKColor(0, 0, 0, 180),
+        Style = SKPaintStyle.Fill
+    };
+    
+    private readonly SKPaint textPaint = new SKPaint
+    {
+        Color = SKColors.White,
+        TextSize = 14,
+        IsAntialias = true
+    };
+    
+    private readonly SKPaint barBgPaint = new SKPaint
+    {
+        Color = new SKColor(60, 60, 60),
+        Style = SKPaintStyle.Fill
+    };
+    
+    private readonly SKPaint barFillPaint = new SKPaint
+    {
+        Style = SKPaintStyle.Fill
+    };
+    
+    private readonly SKPaint thresholdPaint = new SKPaint
+    {
+        StrokeWidth = 2,
+        IsAntialias = true
+    };
+    
+    private readonly SKPaint lighterPaint = new SKPaint
+    {
+        Color = SKColors.Silver,
+        Style = SKPaintStyle.Fill,
+        IsAntialias = true
+    };
+    
+    private readonly SKPaint outerGlowPaint = new SKPaint
+    {
+        Style = SKPaintStyle.Fill,
+        IsAntialias = true
+    };
+    
+    private readonly SKPaint flamePaint = new SKPaint
+    {
+        Style = SKPaintStyle.Fill,
+        IsAntialias = true
+    };
+    
+    private readonly SKPaint beamPaint = new SKPaint
+    {
+        Style = SKPaintStyle.Stroke,
+        IsAntialias = true,
+        StrokeCap = SKStrokeCap.Round,
+        BlendMode = SKBlendMode.Plus
+    };
+    
+    private readonly SKPaint glowPaint = new SKPaint
+    {
+        Style = SKPaintStyle.Stroke,
+        IsAntialias = true,
+        StrokeCap = SKStrokeCap.Round,
+        BlendMode = SKBlendMode.Plus
+    };
+    
+    private readonly SKPaint flashPaint = new SKPaint
+    {
+        Style = SKPaintStyle.Fill,
+        BlendMode = SKBlendMode.Plus
+    };
 
     public void Render(SKCanvas canvas, int width, int height, float[] leftSpectrum, float[] rightSpectrum, bool isBeat)
     {
@@ -446,27 +527,21 @@ public class DanceMode : IVisualizerMode
         float scale = (Math.Min(width, height) / 600f) * dancer.Scale;
         canvas.Scale(scale, scale);
 
-        // White paint for stick figure
-        using var paint = new SKPaint
-        {
-            Color = SKColors.White,
-            StrokeWidth = 8 * dancer.BodyWidth,  // Apply body width variation
-            Style = SKPaintStyle.Stroke,
-            IsAntialias = true,
-            StrokeCap = SKStrokeCap.Round
-        };
+        // Configure cached paint for stick figure
+        dancerPaint.StrokeWidth = 8 * dancer.BodyWidth;
+        dancerPaint.Color = SKColors.White;
 
         // Enhanced stroke on beat
         if (beatIntensity > 0.3f)
         {
-            paint.StrokeWidth = (8 + beatIntensity * 4f) * dancer.BodyWidth;
-            paint.Color = SKColors.White.WithAlpha((byte)(200 + beatIntensity * 55));
+            dancerPaint.StrokeWidth = (8 + beatIntensity * 4f) * dancer.BodyWidth;
+            dancerPaint.Color = SKColors.White.WithAlpha((byte)(200 + beatIntensity * 55));
         }
 
         // Draw legs (connected to hip at 0, 0) - use per-dancer leg angles and length
         float legLength = 70 * dancer.LegLength;
-        DrawLeg(canvas, paint, 0, 0, dancer.LeftLegAngle, legLength); // Left leg
-        DrawLeg(canvas, paint, 0, 0, dancer.RightLegAngle, legLength); // Right leg
+        DrawLeg(canvas, dancerPaint, 0, 0, dancer.LeftLegAngle, legLength); // Left leg
+        DrawLeg(canvas, dancerPaint, 0, 0, dancer.RightLegAngle, legLength); // Right leg
 
         // Draw torso with rotation - apply dancer variation
         canvas.Save();
@@ -474,7 +549,7 @@ public class DanceMode : IVisualizerMode
         
         // Hip to shoulder - apply torso height variation
         float torsoHeight = 120 * dancer.TorsoHeight;
-        canvas.DrawLine(0, 0, 0, -torsoHeight, paint);
+        canvas.DrawLine(0, 0, 0, -torsoHeight, dancerPaint);
         
         // Calculate per-dancer arm angles with unique phase and speed - INDEPENDENT movement
         // Left arm uses one frequency, right arm uses different frequency for independent motion
@@ -485,20 +560,20 @@ public class DanceMode : IVisualizerMode
         // Draw arms from shoulders - apply arm length variation
         float shoulderY = -torsoHeight * 0.917f;  // Shoulders at ~91.7% of torso height
         float armLength = 60 * dancer.ArmLength;
-        DrawArm(canvas, paint, 0, shoulderY, dancerArmLeft, armLength, true); // Left arm
-        DrawArm(canvas, paint, 0, shoulderY, dancerArmRight, armLength, false); // Right arm
+        DrawArm(canvas, dancerPaint, 0, shoulderY, dancerArmLeft, armLength, true); // Left arm
+        DrawArm(canvas, dancerPaint, 0, shoulderY, dancerArmRight, armLength, false); // Right arm
 
         // Draw lighter if raised for this dancer
         if (dancer.IsLighterUp)
         {
-            DrawLighter(canvas, paint, 0, shoulderY, 180f, armLength, dancer.LighterColor);
+            DrawLighter(canvas, dancerPaint, 0, shoulderY, 180f, armLength, dancer.LighterColor);
         }
 
         // Draw head with bob (constrained to stay attached to neck) - apply dancer variation
         float neckY = -torsoHeight;
         float dancerHeadBob = (float)Math.Sin((DateTime.Now.Ticks / 1500000.0) * dancer.AnimationSpeed + dancer.PhaseOffset) * Math.Min(8f, 3f + highEnergy * 5f) * dancer.MovementScale;
         float headCenterY = neckY - 15 * dancer.HeadSize - Math.Abs(dancerHeadBob); // Head stays above neck, bobs vertically
-        canvas.DrawCircle(0, headCenterY, 20 * dancer.HeadSize, paint);
+        canvas.DrawCircle(0, headCenterY, 20 * dancer.HeadSize, dancerPaint);
         
         canvas.Restore();
 
@@ -514,34 +589,25 @@ public class DanceMode : IVisualizerMode
         int y = margin;
 
         // Background box
-        using var bgPaint = new SKPaint
-        {
-            Color = new SKColor(0, 0, 0, 180),
-            Style = SKPaintStyle.Fill
-        };
         canvas.DrawRect(x - 5, y - 5, barWidth + 60, 90, bgPaint);
 
-        // Text paint
-        using var textPaint = new SKPaint
+        // Configure text paint
+        if (textPaint.Typeface == null)
         {
-            Color = SKColors.White,
-            TextSize = 14,
-            IsAntialias = true,
-            Typeface = SKTypeface.FromFamilyName("Arial", SKFontStyleWeight.Bold, SKFontStyleWidth.Normal, SKFontStyleSlant.Upright)
-        };
+            textPaint.Typeface = SKTypeface.FromFamilyName("Arial", SKFontStyleWeight.Bold, SKFontStyleWidth.Normal, SKFontStyleSlant.Upright);
+        }
 
         // Draw intensity bar
         float maxDisplay = 350f;
         float barFillWidth = Math.Min(overallIntensity / maxDisplay, 1f) * barWidth;
         
         // Bar background
-        using var barBgPaint = new SKPaint { Color = new SKColor(60, 60, 60), Style = SKPaintStyle.Fill };
         canvas.DrawRect(x, y + 20, barWidth, barHeight, barBgPaint);
         
         // Bar fill (color changes based on threshold)
         bool anyLighterUp = dancers.Any(d => d.IsLighterUp);
         var barColor = anyLighterUp ? SKColors.Orange : (overallIntensity > LIGHTER_THRESHOLD_DOWN ? SKColors.Yellow : SKColors.Green);
-        using var barFillPaint = new SKPaint { Color = barColor, Style = SKPaintStyle.Fill };
+        barFillPaint.Color = barColor;
         canvas.DrawRect(x, y + 20, barFillWidth, barHeight, barFillPaint);
 
         // Draw threshold lines
@@ -667,13 +733,6 @@ public class DanceMode : IVisualizerMode
         float handY = elbowY + (float)Math.Cos(lowerAngle) * lowerLength;
 
         // Draw lighter body (small rectangle)
-        using var lighterPaint = new SKPaint
-        {
-            Color = SKColors.Silver,
-            Style = SKPaintStyle.Fill,
-            IsAntialias = true
-        };
-        
         var lighterRect = new SKRect(handX - 3, handY - 8, handX + 3, handY);
         canvas.DrawRect(lighterRect, lighterPaint);
 
@@ -696,40 +755,21 @@ public class DanceMode : IVisualizerMode
             float glowSize = i * 8f;
             byte glowAlpha = (byte)(40 / i);
             
-            using var outerGlowPaint = new SKPaint
-            {
-                Color = flameColor.WithAlpha(glowAlpha),
-                Style = SKPaintStyle.Fill,
-                IsAntialias = true,
-                MaskFilter = SKMaskFilter.CreateBlur(SKBlurStyle.Normal, glowSize)
-            };
+            outerGlowPaint.Color = flameColor.WithAlpha(glowAlpha);
+            outerGlowPaint.MaskFilter = SKMaskFilter.CreateBlur(SKBlurStyle.Normal, glowSize);
             canvas.DrawPath(flamePath, outerGlowPaint);
         }
         
         // Outer flame (random color with alpha)
-        using var glowPaint = new SKPaint
-        {
-            Color = flameColor.WithAlpha(200),
-            Style = SKPaintStyle.Fill,
-            IsAntialias = true
-        };
-        canvas.DrawPath(flamePath, glowPaint);
+        flamePaint.Color = flameColor.WithAlpha(200);
+        canvas.DrawPath(flamePath, flamePaint);
         
         // Inner bright core (full intensity)
-        using var flamePaint = new SKPaint
-        {
-            Color = flameColor,
-            IsAntialias = true
-        };
-        canvas.DrawPath(flamePath, glowPaint);
+        flamePaint.Color = flameColor;
+        canvas.DrawPath(flamePath, flamePaint);
         
         // Inner bright core (full intensity)
-        using var innerFlamePaint = new SKPaint
-        {
-            Color = flameColor,
-            Style = SKPaintStyle.Fill,
-            IsAntialias = true
-        };
+        flamePaint.Color = flameColor;
         
         var innerFlamePath = new SKPath();
         innerFlamePath.MoveTo(handX, handY - 8);
@@ -737,7 +777,7 @@ public class DanceMode : IVisualizerMode
         innerFlamePath.LineTo(handX, handY - 8 - flameHeight * 0.8f);
         innerFlamePath.LineTo(handX + flameWidth * 0.5f, handY - 8 - flameHeight * 0.6f);
         innerFlamePath.Close();
-        canvas.DrawPath(innerFlamePath, innerFlamePaint);
+        canvas.DrawPath(innerFlamePath, flamePaint);
     }
 
     private float GetBandEnergy(float[] leftSpectrum, float[] rightSpectrum, int startBin, int endBin)
@@ -811,29 +851,15 @@ public class DanceMode : IVisualizerMode
             
             // Draw main beam - thinner for back lasers
             float beamWidth = (4f + laserIntensities[i] * 6f) * depth;
-            using var beamPaint = new SKPaint
-            {
-                Shader = shader,
-                StrokeWidth = beamWidth,
-                Style = SKPaintStyle.Stroke,
-                IsAntialias = true,
-                StrokeCap = SKStrokeCap.Round,
-                BlendMode = SKBlendMode.Plus // Additive blending for glow effect
-            };
+            beamPaint.Shader = shader;
+            beamPaint.StrokeWidth = beamWidth;
             canvas.DrawLine(startX, startY, endX, endY, beamPaint);
             
             // Draw outer glow - smaller for back lasers
             float glowWidth = (12f + laserIntensities[i] * 15f) * depth;
-            using var glowPaint = new SKPaint
-            {
-                Color = laserColors[i].WithAlpha((byte)(alpha * 0.3f)),
-                StrokeWidth = glowWidth,
-                Style = SKPaintStyle.Stroke,
-                IsAntialias = true,
-                StrokeCap = SKStrokeCap.Round,
-                MaskFilter = SKMaskFilter.CreateBlur(SKBlurStyle.Normal, 8f * depth),
-                BlendMode = SKBlendMode.Plus
-            };
+            glowPaint.Color = laserColors[i].WithAlpha((byte)(alpha * 0.3f));
+            glowPaint.StrokeWidth = glowWidth;
+            glowPaint.MaskFilter = SKMaskFilter.CreateBlur(SKBlurStyle.Normal, 8f * depth);
             canvas.DrawLine(startX, startY, endX, endY, glowPaint);
         }
     }
@@ -863,13 +889,7 @@ public class DanceMode : IVisualizerMode
             SKShaderTileMode.Clamp
         );
         
-        using var flashPaint = new SKPaint
-        {
-            Shader = shader,
-            Style = SKPaintStyle.Fill,
-            BlendMode = SKBlendMode.Plus  // Additive blending for flash effect
-        };
-        
+        flashPaint.Shader = shader;
         canvas.DrawRect(0, 0, width, height, flashPaint);
     }
 }

@@ -13,6 +13,20 @@ public class CircleMode : IVisualizerMode
     private float baseRadius = 0;
     private const float MaxGrowth = 150f; // Maximum distance spectrum can grow outward
     private const float VelocitySmoothing = 0.85f; // Higher = more smoothing
+    
+    // Cached paint objects
+    private readonly SKPaint fillPaint = new SKPaint
+    {
+        Color = SKColors.Black,
+        IsAntialias = true,
+        Style = SKPaintStyle.Fill
+    };
+    
+    private readonly SKPaint segmentPaint = new SKPaint
+    {
+        IsAntialias = true,
+        Style = SKPaintStyle.Fill
+    };
 
     public string Name => "the circle";
     public string Emoji => "⭕";
@@ -87,15 +101,7 @@ public class CircleMode : IVisualizerMode
             path.Close();
 
             // Draw the filled circle shape with white outline
-            using (var fillPaint = new SKPaint
-            {
-                Color = SKColors.Black,
-                IsAntialias = true,
-                Style = SKPaintStyle.Fill
-            })
-            {
-                canvas.DrawPath(path, fillPaint);
-            }
+            canvas.DrawPath(path, fillPaint);
         }
 
         // Draw individual colored segments based on velocity
@@ -158,15 +164,8 @@ public class CircleMode : IVisualizerMode
                 path.LineTo(x2Inner, y2Inner);
                 path.Close();
 
-                using (var paint = new SKPaint
-                {
-                    Color = color,
-                    IsAntialias = true,
-                    Style = SKPaintStyle.Fill
-                })
-                {
-                    canvas.DrawPath(path, paint);
-                }
+                segmentPaint.Color = color;
+                canvas.DrawPath(path, segmentPaint);
             }
         }
 

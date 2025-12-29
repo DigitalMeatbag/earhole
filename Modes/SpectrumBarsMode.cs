@@ -9,6 +9,9 @@ public class SpectrumBarsMode : IVisualizerMode
 {
     private static readonly SKColor Indigo = SKColor.Parse("#4B0082");
     private static readonly SKColor Violet = SKColor.Parse("#8A2BE2");
+    
+    // Cached paint object for reuse
+    private readonly SKPaint paint = new SKPaint { IsAntialias = true };
 
     public string Name => "spectrum bars";
     public string Emoji => "📊";
@@ -19,18 +22,20 @@ public class SpectrumBarsMode : IVisualizerMode
 
         // Mix stereo channels for visualization
         int length = Math.Min(leftSpectrum.Length, rightSpectrum.Length);
+        float barWidth = width / (float)length;
+        
         for (int i = 0; i < length; i++)
         {
             float mixedValue = (leftSpectrum[i] + rightSpectrum[i]) / 2f;
             float barHeight = (float)Math.Log(1 + mixedValue) * (height / 6f);
-            float x = (float)i / length * width;
+            float x = i * barWidth;
             SKColor baseColor = GetColorForHeight(barHeight, height);
             
             // On beat, blend color 50% towards white for pulse effect
             SKColor color = isBeat ? BlendWithWhite(baseColor, 0.5f) : baseColor;
             
-            var paint = new SKPaint { Color = color };
-            canvas.DrawRect(x, height - barHeight, width / (float)length, barHeight, paint);
+            paint.Color = color;
+            canvas.DrawRect(x, height - barHeight, barWidth, barHeight, paint);
         }
     }
 

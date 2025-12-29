@@ -37,6 +37,21 @@ public class FairiesMode : IVisualizerMode
         new SKColor(75, 0, 130),    // Indigo
         new SKColor(148, 0, 211)    // Violet
     };
+    
+    // Cached paint objects for performance
+    private readonly SKPaint glowPaint = new SKPaint
+    {
+        IsAntialias = true,
+        Style = SKPaintStyle.Fill,
+        BlendMode = SKBlendMode.Plus
+    };
+    
+    private readonly SKPaint corePaint = new SKPaint
+    {
+        IsAntialias = true,
+        Style = SKPaintStyle.Fill,
+        BlendMode = SKBlendMode.Plus
+    };
 
     public string Name => "fairies";
     public string Emoji => "🧚";
@@ -314,28 +329,12 @@ public class FairiesMode : IVisualizerMode
             float layerSize = glowSize * (i / (float)glowLayers);
             byte alpha = (byte)(100 * (1f - i / (float)(glowLayers + 1)));
             
-            using (var paint = new SKPaint
-            {
-                Color = fairy.Color.WithAlpha(alpha),
-                IsAntialias = true,
-                Style = SKPaintStyle.Fill,
-                BlendMode = SKBlendMode.Plus // Additive blending for glow
-            })
-            {
-                canvas.DrawCircle(fairy.Position, layerSize, paint);
-            }
+            glowPaint.Color = fairy.Color.WithAlpha(alpha);
+            canvas.DrawCircle(fairy.Position, layerSize, glowPaint);
         }
         
         // Draw bright core
-        using (var corePaint = new SKPaint
-        {
-            Color = fairy.Color.WithAlpha(255),
-            IsAntialias = true,
-            Style = SKPaintStyle.Fill,
-            BlendMode = SKBlendMode.Plus
-        })
-        {
-            canvas.DrawCircle(fairy.Position, baseSize * 0.4f, corePaint);
-        }
+        corePaint.Color = fairy.Color.WithAlpha(255);
+        canvas.DrawCircle(fairy.Position, baseSize * 0.4f, corePaint);
     }
 }

@@ -23,6 +23,21 @@ public class ParticleMode : IVisualizerMode
     private float beatPulse = 0f; // 0 to 1, current beat pulse amount
     private const int MAX_PARTICLES_PER_BIN = 8;
     private const int FREQUENCY_BINS = 32;
+    
+    // Cached paint objects for performance
+    private readonly SKPaint particlePaint = new SKPaint
+    {
+        IsAntialias = true,
+        BlendMode = SKBlendMode.Plus
+    };
+    
+    private readonly SKPaint guidePaint = new SKPaint
+    {
+        Style = SKPaintStyle.Stroke,
+        StrokeWidth = 1,
+        Color = SKColors.White.WithAlpha(20),
+        IsAntialias = true
+    };
 
     public string Name => "particles";
     public string Emoji => "✨";
@@ -57,7 +72,14 @@ public class ParticleMode : IVisualizerMode
         {
             float intensity = (float)Math.Log(1 + spectrum[bin]) * 2.0f;
             int desiredCount = (int)(intensity * MAX_PARTICLES_PER_BIN);
-            int currentCount = particles.Count(p => p.FrequencyBin == bin);
+            
+            // Count particles for this bin without LINQ
+            int currentCount = 0;
+            for (int i = 0; i < particles.Count; i++)
+            {
+                if (particles[i].FrequencyBin == bin)
+                    currentCount++;
+            }
 
             // Add particles if needed
             while (currentCount < desiredCount && currentCount < MAX_PARTICLES_PER_BIN)
@@ -66,14 +88,17 @@ public class ParticleMode : IVisualizerMode
                 currentCount++;
             }
 
-            // Remove excess particles
+            // Remove excess particles from end of list (reverse iteration)
             while (currentCount > desiredCount)
             {
-                var toRemove = particles.LastOrDefault(p => p.FrequencyBin == bin);
-                if (toRemove != null)
+                for (int i = particles.Count - 1; i >= 0; i--)
                 {
-                    particles.Remove(toRemove);
-                    currentCount--;
+                    if (particles[i].FrequencyBin == bin)
+                    {
+                        particles.RemoveAt(i);
+                        currentCount--;
+                        break;
+                    }
                 }
             }
         }
@@ -101,37 +126,23 @@ public class ParticleMode : IVisualizerMode
             // Calculate alpha based on intensity and beat pulse
             float alpha = Math.Clamp(intensity + beatPulse * 0.5f, 0.1f, 1.0f);
 
-            // Render particle with glow using additive blending
-            using var paint = new SKPaint
-            {
-                IsAntialias = true,
-                BlendMode = SKBlendMode.Plus // Additive blending for glow
-            };
-
+            // Render particle with glow using additive blending - reuse cached paint
             // Draw outer glow
-            paint.Color = particle.Color.WithAlpha((byte)(alpha * 60));
-            canvas.DrawCircle(x, y, particle.Size * 2.5f, paint);
+            particlePaint.Color = particle.Color.WithAlpha((byte)(alpha * 60));
+            canvas.DrawCircle(x, y, particle.Size * 2.5f, particlePaint);
 
             // Draw middle glow
-            paint.Color = particle.Color.WithAlpha((byte)(alpha * 120));
-            canvas.DrawCircle(x, y, particle.Size * 1.5f, paint);
+            particlePaint.Color = particle.Color.WithAlpha((byte)(alpha * 120));
+            canvas.DrawCircle(x, y, particle.Size * 1.5f, particlePaint);
 
             // Draw core
-            paint.Color = particle.Color.WithAlpha((byte)(alpha * 255));
-            canvas.DrawCircle(x, y, particle.Size, paint);
+            particlePaint.Color = particle.Color.WithAlpha((byte)(alpha * 255));
+            canvas.DrawCircle(x, y, particle.Size, particlePaint);
         }
 
         // Draw subtle ring guides when quiet
         if (beatPulse < 0.1f)
         {
-            using var guidePaint = new SKPaint
-            {
-                Style = SKPaintStyle.Stroke,
-                StrokeWidth = 1,
-                Color = SKColors.White.WithAlpha(20),
-                IsAntialias = true
-            };
-
             for (int i = 0; i < 8; i++)
             {
                 float ringRadius = maxRadius * ((i + 1) / 8f);
