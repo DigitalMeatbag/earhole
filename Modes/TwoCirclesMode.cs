@@ -31,6 +31,13 @@ public class TwoCirclesMode : IVisualizerMode
     private const float MaxGrowth = 150f; // Maximum distance spectrum can grow outward
     private const float VelocitySmoothing = 0.85f; // Higher = more smoothing
     
+    // Trail effect using persistent bitmap
+    private SKBitmap? trailBitmap;
+    private int lastWidth = 0;
+    private int lastHeight = 0;
+    private const float TrailFadeRate = 0.88f; // Multiply alpha by this each frame (faster fade to prevent ghosting)
+    private const byte AlphaCutoff = 10; // Clear pixels below this alpha threshold
+    
     // Beat compression effect
     private const float CompressionAmount = 0.7f; // Compress to 70% of normal size
     private const float CompressionSpeed = 0.15f; // How quickly to return to normal
@@ -57,6 +64,19 @@ public class TwoCirclesMode : IVisualizerMode
     public void Render(SKCanvas canvas, int width, int height, float[] leftSpectrum, float[] rightSpectrum, bool isBeat)
     {
         canvas.Clear(SKColors.Black);
+
+        // Initialize or resize trail bitmap if needed
+        if (trailBitmap == null || lastWidth != width || lastHeight != height)
+        {
+            trailBitmap?.Dispose();
+            trailBitmap = new SKBitmap(width, height);
+            lastWidth = width;
+            lastHeight = height;
+            
+            // Clear the new bitmap
+            using var bitmapCanvas = new SKCanvas(trailBitmap);
+            bitmapCanvas.Clear(SKColors.Transparent);
+        }
 
         // Update color cycling - each color is offset by 90 degrees to keep them distinct
         hueOffset = (hueOffset + HueCycleSpeed) % 360f;
@@ -132,7 +152,40 @@ public class TwoCirclesMode : IVisualizerMode
         UpdateRadii(leftSpectrum, ref currentRadiiLeft);
         UpdateRadii(rightSpectrum, ref currentRadiiRight);
 
-        // Update and render compression waves
+        // Fade the trail bitmap
+        FadeTrailBitmap();
+
+        // Clear the inner circles from the trail bitmap (preserve center for compression waves)
+        using (var trailCanvas = new SKCanvas(trailBitmap))
+        {
+            using var clearPaint = new SKPaint
+            {
+                Color = SKColors.Transparent,
+                BlendMode = SKBlendMode.Src,
+                IsAntialias = true
+            };
+            trailCanvas.DrawCircle(leftCenterX, centerY, baseRadius, clearPaint);
+            trailCanvas.DrawCircle(rightCenterX, centerY, baseRadius, clearPaint);
+        }
+
+        // Draw current frame to trail bitmap at full alpha
+        // This ensures all bars blend properly with SKBlendMode.Plus
+        using (var trailCanvas = new SKCanvas(trailBitmap))
+        {
+            RenderInterleavedCircles(trailCanvas, leftCenterX, rightCenterX, centerY,
+                                    leftSpectrum, rightSpectrum,
+                                    ref currentRadiiLeft, ref previousRadiiLeft, ref smoothedVelocitiesLeft,
+                                    ref currentRadiiRight, ref previousRadiiRight, ref smoothedVelocitiesRight,
+                                    baseRadius,
+                                    LeftOutwardColor, LeftInwardColor,
+                                    RightOutwardColor, RightInwardColor,
+                                    1f); // Full alpha for current frame, will naturally stand out against faded trails
+        }
+
+        // Draw the trail bitmap to the main canvas
+        canvas.DrawBitmap(trailBitmap, 0, 0);
+
+        // Update and render compression waves (drawn on top of trails)
         for (int i = waves.Count - 1; i >= 0; i--)
         {
             var wave = waves[i];
@@ -166,15 +219,47 @@ public class TwoCirclesMode : IVisualizerMode
             canvas.DrawCircle(wave.CenterX, wave.CenterY, wave.CurrentRadius, wavePaint);
         }
 
-        // Render both circles with interleaved segments for better blending
-        RenderInterleavedCircles(canvas, leftCenterX, rightCenterX, centerY, 
-                                leftSpectrum, rightSpectrum,
-                                ref currentRadiiLeft, ref previousRadiiLeft, ref smoothedVelocitiesLeft,
-                                ref currentRadiiRight, ref previousRadiiRight, ref smoothedVelocitiesRight);
-
         // Update previous radii for next frame
         Array.Copy(currentRadiiLeft, previousRadiiLeft, leftSpectrum.Length);
         Array.Copy(currentRadiiRight, previousRadiiRight, rightSpectrum.Length);
+    }
+
+    private void FadeTrailBitmap()
+    {
+        if (trailBitmap == null) return;
+
+        // Create a temporary canvas to apply fade effect
+        using var tempSurface = SKSurface.Create(new SKImageInfo(trailBitmap.Width, trailBitmap.Height));
+        var tempCanvas = tempSurface.Canvas;
+        
+        // Draw existing bitmap with reduced alpha
+        using var fadePaint = new SKPaint
+        {
+            Color = SKColors.White.WithAlpha((byte)(255 * TrailFadeRate)),
+            BlendMode = SKBlendMode.DstIn // Multiply destination alpha
+        };
+        
+        tempCanvas.Clear(SKColors.Transparent);
+        tempCanvas.DrawBitmap(trailBitmap, 0, 0);
+        tempCanvas.DrawRect(0, 0, trailBitmap.Width, trailBitmap.Height, fadePaint);
+        
+        // Copy result back to trail bitmap
+        using var snapshot = tempSurface.Snapshot();
+        using var snapshotCanvas = new SKCanvas(trailBitmap);
+        snapshotCanvas.Clear(SKColors.Transparent);
+        snapshotCanvas.DrawImage(snapshot, 0, 0);
+        
+        // Clear very faint pixels to prevent ghosting
+        using var cutoffCanvas = new SKCanvas(trailBitmap);
+        using var cutoffPaint = new SKPaint
+        {
+            Color = SKColors.White.WithAlpha(AlphaCutoff),
+            BlendMode = SKBlendMode.DstOut, // Remove pixels below threshold
+            IsAntialias = false
+        };
+        
+        // Apply threshold by drawing with DstOut mode
+        cutoffCanvas.DrawRect(0, 0, trailBitmap.Width, trailBitmap.Height, cutoffPaint);
     }
 
     private void UpdateRadii(float[] spectrum, ref float[] currentRadii)
@@ -189,7 +274,11 @@ public class TwoCirclesMode : IVisualizerMode
     private void RenderInterleavedCircles(SKCanvas canvas, float leftCenterX, float rightCenterX, float centerY,
                                          float[] leftSpectrum, float[] rightSpectrum,
                                          ref float[] currentRadiiLeft, ref float[] previousRadiiLeft, ref float[] smoothedVelocitiesLeft,
-                                         ref float[] currentRadiiRight, ref float[] previousRadiiRight, ref float[] smoothedVelocitiesRight)
+                                         ref float[] currentRadiiRight, ref float[] previousRadiiRight, ref float[] smoothedVelocitiesRight,
+                                         float renderBaseRadius,
+                                         SKColor leftOutColor, SKColor leftInColor,
+                                         SKColor rightOutColor, SKColor rightInColor,
+                                         float alphaMultiplier = 1f)
     {
         int length = Math.Max(leftSpectrum.Length, rightSpectrum.Length);
         
@@ -200,20 +289,23 @@ public class TwoCirclesMode : IVisualizerMode
             if (i < leftSpectrum.Length)
             {
                 DrawSegment(canvas, leftCenterX, centerY, i, leftSpectrum.Length,
-                           ref currentRadiiLeft, ref previousRadiiLeft, ref smoothedVelocitiesLeft, true);
+                           ref currentRadiiLeft, ref previousRadiiLeft, ref smoothedVelocitiesLeft, true,
+                           renderBaseRadius, leftOutColor, leftInColor, alphaMultiplier);
             }
             
             // Draw right circle segment
             if (i < rightSpectrum.Length)
             {
                 DrawSegment(canvas, rightCenterX, centerY, i, rightSpectrum.Length,
-                           ref currentRadiiRight, ref previousRadiiRight, ref smoothedVelocitiesRight, false);
+                           ref currentRadiiRight, ref previousRadiiRight, ref smoothedVelocitiesRight, false,
+                           renderBaseRadius, rightOutColor, rightInColor, alphaMultiplier);
             }
         }
     }
 
     private void DrawSegment(SKCanvas canvas, float centerX, float centerY, int i, int spectrumLength,
-                            ref float[] currentRadii, ref float[] previousRadii, ref float[] smoothedVelocities, bool isLeftCircle)
+                            ref float[] currentRadii, ref float[] previousRadii, ref float[] smoothedVelocities, bool isLeftCircle,
+                            float renderBaseRadius, SKColor leftOutColor, SKColor leftInColor, float alphaMultiplier)
     {
         // Calculate instantaneous velocity (rate of change)
         float instantVelocity = currentRadii[i] - previousRadii[i];
@@ -230,7 +322,7 @@ public class TwoCirclesMode : IVisualizerMode
         {
             // Moving outward - interpolate from white to target color
             byte component = (byte)(255 * (1f - normalizedVelocity));
-            SKColor targetColor = isLeftCircle ? LeftOutwardColor : RightOutwardColor;
+            SKColor targetColor = leftOutColor;
             
             color = new SKColor(
                 (byte)(NeutralColor.Red + (targetColor.Red - NeutralColor.Red) * normalizedVelocity),
@@ -242,7 +334,7 @@ public class TwoCirclesMode : IVisualizerMode
         {
             // Moving inward - interpolate from white to target color
             float absVelocity = -normalizedVelocity;
-            SKColor targetColor = isLeftCircle ? LeftInwardColor : RightInwardColor;
+            SKColor targetColor = leftInColor;
             
             color = new SKColor(
                 (byte)(NeutralColor.Red + (targetColor.Red - NeutralColor.Red) * absVelocity),
@@ -260,7 +352,7 @@ public class TwoCirclesMode : IVisualizerMode
         float angle2 = -MathF.PI / 2f + (2f * MathF.PI * (i + 1) / spectrumLength);
         
         // Calculate inner and outer points for this segment
-        float innerRadius = baseRadius;
+        float innerRadius = renderBaseRadius;
         float outerRadius = currentRadii[i];
         
         float x1Inner = centerX + innerRadius * MathF.Cos(angle1);
@@ -284,7 +376,7 @@ public class TwoCirclesMode : IVisualizerMode
 
             using (var paint = new SKPaint
             {
-                Color = color.WithAlpha(200),
+                Color = color.WithAlpha((byte)(200 * alphaMultiplier)),
                 IsAntialias = true,
                 Style = SKPaintStyle.Fill,
                 BlendMode = SKBlendMode.Plus
