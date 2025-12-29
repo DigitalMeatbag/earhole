@@ -39,16 +39,19 @@ This is a C# WPF application that captures live audio data from the system loopb
 5. Play audio on your system to see the visualization
 6. Use F/F11 for fullscreen, Q/Esc to quit, ` to open the mode menu
 
-### Option 2: Download Pre-built Executable (Standalone)
+### Option 2: Download Pre-built Executable
 
-The repository includes pre-built releases that require no additional installations:
+Pre-built releases are available that require the .NET 6.0 Runtime:
 
-1. Go to the [Releases](https://github.com/DigitalMeatbag/earhole/releases) page
-2. Download the latest `earhole-v*.zip` file
-3. Extract the ZIP file
-4. Run `earhole.exe` directly - no .NET installation required!
+1. **Install .NET 6.0 Runtime** (if not already installed):
+   - Download from: https://dotnet.microsoft.com/download/dotnet/6.0
+   - Choose ".NET Desktop Runtime 6.0.x" for Windows
+2. Go to the [Releases](https://github.com/DigitalMeatbag/earhole/releases) page
+3. Download the latest `earhole-v*.zip` file
+4. Extract the ZIP file
+5. Run `earhole.exe` from the extracted folder
 
-**Note**: Releases contain everything needed (~150MB). Just extract and run!
+**Note**: The ZIP is ~8MB and includes all necessary files. Keep the exe and assets folder together.
 
 ## Controls
 
@@ -115,7 +118,7 @@ If you want to modify the code:
 1. Install .NET 6.0 SDK
 2. Run `dotnet build` to compile
 3. Run `dotnet run` to test
-4. To create your own published version: `dotnet publish earhole.csproj -c Release -r win-x64 --self-contained -o publish`
+4. To create your own published version: `dotnet publish earhole.csproj -c Release -r win-x64 --no-self-contained -o publish`
 
 ### Automated Release Build
 
@@ -126,11 +129,12 @@ For convenience, use the included PowerShell script to automate the entire relea
 ```
 
 This script will:
+- Clean the publish directory
 - Build the project in Release mode
-- Publish as a self-contained executable
-- Create a timestamped ZIP archive (e.g., `earhole-v2025-12-23.zip`)
+- Publish as a framework-dependent executable (requires .NET 6.0 Runtime)
+- Create a timestamped ZIP archive (e.g., `earhole-v2025-12-29.zip`)
 
-The ZIP contains the entire publish output (including native dependencies like SkiaSharp). Distribute the ZIP as-is; users should extract and run `earhole.exe` from the extracted folder (do not move the exe out of that folder).
+The ZIP contains the executable, necessary DLLs, and the assets folder. Distribute the ZIP as-is; users should extract and run `earhole.exe` from the extracted folder (do not move the exe or assets out of that folder).
 
 ## Troubleshooting
 
