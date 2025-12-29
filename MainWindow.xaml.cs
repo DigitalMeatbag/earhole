@@ -542,9 +542,10 @@ public partial class MainWindow : Window
             rightChannel[i] = samples[i * 2 + 1]; // Right channel
         }
 
-        // Ensure length is power of 2 for FFT
-        int fftSize = NextPowerOfTwo(Math.Min(leftChannel.Length, 2048)); // Cap at 2048
-        if (fftSize > leftChannel.Length) fftSize = leftChannel.Length;
+        // Ensure FFT size is sufficient for SPECTRUM_RESOLUTION
+        // FFT produces N/2 frequency bins, so we need at least SPECTRUM_RESOLUTION * 2
+        int minFftSize = SPECTRUM_RESOLUTION * 2;
+        int fftSize = NextPowerOfTwo(Math.Max(leftChannel.Length, minFftSize));
         if (fftSize < 2) return;
         Array.Resize(ref leftChannel, fftSize);
         Array.Resize(ref rightChannel, fftSize);
@@ -559,11 +560,18 @@ public partial class MainWindow : Window
 
         lock (this.spectrumLock)
         {
-            for (int i = 0; i < this.leftSpectrum.Length && i < leftComplex.Length / 2; i++)
+            // Clear spectrum arrays first to avoid leftover data in unfilled bins
+            Array.Clear(this.leftSpectrum, 0, this.leftSpectrum.Length);
+            Array.Clear(this.rightSpectrum, 0, this.rightSpectrum.Length);
+            
+            int maxBins = Math.Min(this.leftSpectrum.Length, leftComplex.Length / 2);
+            for (int i = 0; i < maxBins; i++)
             {
                 this.leftSpectrum[i] = (float)leftComplex[i].Magnitude;
             }
-            for (int i = 0; i < this.rightSpectrum.Length && i < rightComplex.Length / 2; i++)
+            
+            maxBins = Math.Min(this.rightSpectrum.Length, rightComplex.Length / 2);
+            for (int i = 0; i < maxBins; i++)
             {
                 this.rightSpectrum[i] = (float)rightComplex[i].Magnitude;
             }
