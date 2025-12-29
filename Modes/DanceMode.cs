@@ -42,16 +42,10 @@ public class DanceMode : IVisualizerMode
     }
 
     // Crowd of dancers
-    private List<Dancer> dancers = new List<Dancer>();
+    private List<Dancer> dancers = new();
     private bool initialized = false;
     private int lastWidth = 0;
     private int lastHeight = 0;
-
-    // Animation state (shared by all dancers)
-    private float legAngleLeft = 0f;
-    private float legAngleRight = 0f;
-    private float armAngleLeft = 0f;
-    private float armAngleRight = 0f;
     private float torsoRotation = 0f;
     private float headBob = 0f;
     private float beatIntensity = 0f;
@@ -59,7 +53,7 @@ public class DanceMode : IVisualizerMode
 
     // Global lighter state
     private float overallIntensity = 0f;
-    private Random random = new Random();
+    private Random random = new();
     private const float LIGHTER_THRESHOLD_UP = 250f; // Threshold to raise lighter
     private const float LIGHTER_THRESHOLD_DOWN = 220f; // Threshold to lower lighter (hysteresis)
     private const float INTENSITY_SMOOTHING = 0.15f;
@@ -83,16 +77,11 @@ public class DanceMode : IVisualizerMode
     private const float CROWD_JUMP_DECAY = 0.85f;
     private const float FLASH_DECAY = 0.75f;
     private const float RIPPLE_SPEED = 2.5f; // How fast the jump ripple travels (depth units per second)
-
-    // Smoothing for movements
-    private float legTargetLeft = 0f;
-    private float legTargetRight = 0f;
     private const float LEG_SMOOTHING = 0.15f;
-    private const float ARM_SMOOTHING = 0.2f;
     private const float TORSO_SMOOTHING = 0.1f;
     
     // Cached paint objects for performance
-    private readonly SKPaint dancerPaint = new SKPaint
+    private readonly SKPaint dancerPaint = new()
     {
         Color = SKColors.White,
         StrokeWidth = 8,
@@ -101,61 +90,61 @@ public class DanceMode : IVisualizerMode
         StrokeCap = SKStrokeCap.Round
     };
     
-    private readonly SKPaint bgPaint = new SKPaint
+    private readonly SKPaint bgPaint = new()
     {
         Color = new SKColor(0, 0, 0, 180),
         Style = SKPaintStyle.Fill
     };
     
-    private readonly SKPaint textPaint = new SKPaint
+    private readonly SKPaint textPaint = new()
     {
         Color = SKColors.White,
         TextSize = 14,
         IsAntialias = true
     };
     
-    private readonly SKPaint barBgPaint = new SKPaint
+    private readonly SKPaint barBgPaint = new()
     {
         Color = new SKColor(60, 60, 60),
         Style = SKPaintStyle.Fill
     };
     
-    private readonly SKPaint barFillPaint = new SKPaint
+    private readonly SKPaint barFillPaint = new()
     {
         Style = SKPaintStyle.Fill
     };
     
-    private readonly SKPaint thresholdPaint = new SKPaint
+    private readonly SKPaint thresholdPaint = new()
     {
         StrokeWidth = 2,
         IsAntialias = true
     };
     
-    private readonly SKPaint lighterPaint = new SKPaint
+    private readonly SKPaint lighterPaint = new()
     {
         Color = SKColors.Silver,
         Style = SKPaintStyle.Fill,
         IsAntialias = true
     };
     
-    private readonly SKPaint outerGlowPaint = new SKPaint
+    private readonly SKPaint outerGlowPaint = new()
     {
         Style = SKPaintStyle.Fill,
         IsAntialias = true
     };
     
-    private readonly SKPaint flamePaint = new SKPaint
+    private readonly SKPaint flamePaint = new()
     {
         Style = SKPaintStyle.Fill,
         IsAntialias = true
     };
     
     // Cached objects for flame rendering
-    private readonly SKPath flamePathCache = new SKPath();
-    private readonly SKPath innerFlamePathCache = new SKPath();
+    private readonly SKPath flamePathCache = new();
+    private readonly SKPath innerFlamePathCache = new();
     
     // Cached objects for laser rendering
-    private readonly SKPaint beamPaint = new SKPaint
+    private readonly SKPaint beamPaint = new()
     {
         Style = SKPaintStyle.Stroke,
         IsAntialias = true,
@@ -163,7 +152,7 @@ public class DanceMode : IVisualizerMode
         BlendMode = SKBlendMode.Plus
     };
     
-    private readonly SKPaint glowPaint = new SKPaint
+    private readonly SKPaint glowPaint = new()
     {
         Style = SKPaintStyle.Stroke,
         IsAntialias = true,
@@ -171,7 +160,7 @@ public class DanceMode : IVisualizerMode
         BlendMode = SKBlendMode.Plus
     };
     
-    private readonly SKPaint flashPaint = new SKPaint
+    private readonly SKPaint flashPaint = new()
     {
         Style = SKPaintStyle.Fill,
         BlendMode = SKBlendMode.Plus
@@ -312,14 +301,14 @@ public class DanceMode : IVisualizerMode
             // Color palette for cycling
             var colorPalette = new SKColor[]
             {
-                new SKColor(255, 0, 0),      // Red
-                new SKColor(0, 100, 255),    // Blue
-                new SKColor(0, 255, 0),      // Green
-                new SKColor(0, 255, 255),    // Cyan
-                new SKColor(255, 0, 255),    // Magenta
-                new SKColor(255, 255, 0),    // Yellow
-                new SKColor(255, 128, 0),    // Orange
-                new SKColor(128, 0, 255)     // Purple
+                new(255, 0, 0),      // Red
+                new(0, 100, 255),    // Blue
+                new(0, 255, 0),      // Green
+                new(0, 255, 255),    // Cyan
+                new(255, 0, 255),    // Magenta
+                new(255, 255, 0),    // Yellow
+                new(255, 128, 0),    // Orange
+                new(128, 0, 255)     // Purple
             };
             
             for (int i = 0; i < laserAngles.Length; i++)
@@ -583,62 +572,6 @@ public class DanceMode : IVisualizerMode
         canvas.Restore();
 
         canvas.Restore();
-    }
-
-    private void DrawIntensityDebug(SKCanvas canvas, int width, int height)
-    {
-        int barWidth = 300;
-        int barHeight = 30;
-        int margin = 20;
-        int x = margin;
-        int y = margin;
-
-        // Background box
-        canvas.DrawRect(x - 5, y - 5, barWidth + 60, 90, bgPaint);
-
-        // Configure text paint
-        if (textPaint.Typeface == null)
-        {
-            textPaint.Typeface = SKTypeface.FromFamilyName("Arial", SKFontStyleWeight.Bold, SKFontStyleWidth.Normal, SKFontStyleSlant.Upright);
-        }
-
-        // Draw intensity bar
-        float maxDisplay = 350f;
-        float barFillWidth = Math.Min(overallIntensity / maxDisplay, 1f) * barWidth;
-        
-        // Bar background
-        canvas.DrawRect(x, y + 20, barWidth, barHeight, barBgPaint);
-        
-        // Bar fill (color changes based on threshold)
-        bool anyLighterUp = dancers.Any(d => d.IsLighterUp);
-        var barColor = anyLighterUp ? SKColors.Orange : (overallIntensity > LIGHTER_THRESHOLD_DOWN ? SKColors.Yellow : SKColors.Green);
-        barFillPaint.Color = barColor;
-        canvas.DrawRect(x, y + 20, barFillWidth, barHeight, barFillPaint);
-
-        // Draw threshold lines
-        float upThresholdX = x + (LIGHTER_THRESHOLD_UP / maxDisplay) * barWidth;
-        float downThresholdX = x + (LIGHTER_THRESHOLD_DOWN / maxDisplay) * barWidth;
-        
-        using var thresholdPaint = new SKPaint
-        {
-            Color = SKColors.Red,
-            StrokeWidth = 2,
-            Style = SKPaintStyle.Stroke
-        };
-        canvas.DrawLine(upThresholdX, y + 20, upThresholdX, y + 20 + barHeight, thresholdPaint);
-        
-        using var thresholdDownPaint = new SKPaint
-        {
-            Color = SKColors.Blue,
-            StrokeWidth = 2,
-            Style = SKPaintStyle.Stroke
-        };
-        canvas.DrawLine(downThresholdX, y + 20, downThresholdX, y + 20 + barHeight, thresholdDownPaint);
-
-        // Text labels
-        canvas.DrawText($"Intensity: {overallIntensity:F2}", x, y + 15, textPaint);
-        canvas.DrawText($"Lighters Up: {dancers.Count(d => d.IsLighterUp)}/{dancers.Count}", x, y + 70, textPaint);
-        canvas.DrawText($"Up: {LIGHTER_THRESHOLD_UP:F1} Down: {LIGHTER_THRESHOLD_DOWN:F1}", x + 150, y + 70, textPaint);
     }
 
     private void DrawLeg(SKCanvas canvas, SKPaint paint, float startX, float startY, float angle, float length)

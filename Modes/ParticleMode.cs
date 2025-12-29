@@ -18,20 +18,20 @@ public class ParticleMode : IVisualizerMode
         public float PulseOffset; // For beat pulse effect
     }
 
-    private readonly List<Particle> particles = new List<Particle>();
-    private readonly Random random = new Random();
+    private readonly List<Particle> particles = new();
+    private readonly Random random = new();
     private float beatPulse = 0f; // 0 to 1, current beat pulse amount
     private const int MAX_PARTICLES_PER_BIN = 8;
     private const int FREQUENCY_BINS = 32;
     
     // Cached paint objects for performance
-    private readonly SKPaint particlePaint = new SKPaint
+    private readonly SKPaint particlePaint = new()
     {
         IsAntialias = true,
         BlendMode = SKBlendMode.Plus
     };
     
-    private readonly SKPaint guidePaint = new SKPaint
+    private readonly SKPaint guidePaint = new()
     {
         Style = SKPaintStyle.Stroke,
         StrokeWidth = 1,

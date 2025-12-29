@@ -11,7 +11,7 @@ public class SpectrumBarsMode : IVisualizerMode
     private static readonly SKColor Violet = SKColor.Parse("#8A2BE2");
     
     // Cached paint object for reuse
-    private readonly SKPaint paint = new SKPaint { IsAntialias = true };
+    private readonly SKPaint paint = new() { IsAntialias = true };
 
     public string Name => "spectrum bars";
     public string Emoji => "📊";

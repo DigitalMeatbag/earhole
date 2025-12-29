@@ -19,8 +19,8 @@ public class FairiesMode : IVisualizerMode
         public float FlutterPhase;
     }
 
-    private readonly List<Fairy> fairies = new List<Fairy>();
-    private readonly Random random = new Random();
+    private readonly List<Fairy> fairies = new();
+    private readonly Random random = new();
     private int width, height;
     private bool initialized = false;
     private float scatterTimer = 0f;
@@ -39,14 +39,14 @@ public class FairiesMode : IVisualizerMode
     };
     
     // Cached paint objects for performance
-    private readonly SKPaint glowPaint = new SKPaint
+    private readonly SKPaint glowPaint = new()
     {
         IsAntialias = true,
         Style = SKPaintStyle.Fill,
         BlendMode = SKBlendMode.Plus
     };
     
-    private readonly SKPaint corePaint = new SKPaint
+    private readonly SKPaint corePaint = new()
     {
         IsAntialias = true,
         Style = SKPaintStyle.Fill,

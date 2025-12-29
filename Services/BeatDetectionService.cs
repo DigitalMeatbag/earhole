@@ -19,15 +19,13 @@ public class BeatDetectionService
     private float averageEnergy = 0f;
     private float lastEnergy = 0f;
     private float energyVariance = 0f;
-    private readonly float beatThreshold;
-    private readonly int bpmHistorySize;
     private int beatCooldown = 0;
     private float estimatedBPM = 120f;
     private int dynamicCooldownFrames = 8;
     
     private readonly float[] energyHistory = new float[3];
     private int energyHistoryIndex = 0;
-    private readonly Queue<DateTime> beatTimestamps = new Queue<DateTime>();
+    private readonly Queue<DateTime> beatTimestamps = new();
 
     public bool IsBeat { get; private set; }
     public float EstimatedBPM => estimatedBPM;

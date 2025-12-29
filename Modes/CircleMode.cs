@@ -15,21 +15,21 @@ public class CircleMode : IVisualizerMode
     private const float VelocitySmoothing = 0.85f; // Higher = more smoothing
     
     // Cached paint objects
-    private readonly SKPaint fillPaint = new SKPaint
+    private readonly SKPaint fillPaint = new()
     {
         Color = SKColors.Black,
         IsAntialias = true,
         Style = SKPaintStyle.Fill
     };
     
-    private readonly SKPaint segmentPaint = new SKPaint
+    private readonly SKPaint segmentPaint = new()
     {
         IsAntialias = true,
         Style = SKPaintStyle.Fill
     };
     
-    private readonly SKPath circlePath = new SKPath();
-    private readonly SKPath segmentPath = new SKPath();
+    private readonly SKPath circlePath = new();
+    private readonly SKPath segmentPath = new();
 
     public string Name => "the circle";
     public string Emoji => "⭕";

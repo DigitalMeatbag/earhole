@@ -8,62 +8,41 @@ namespace earhole.Modes;
 /// </summary>
 public class ColdWarMode : IVisualizerMode
 {
-    private readonly Random random = new Random();
+    private readonly Random random = new();
     private Svg.Skia.SKSvg? worldMapSvg;
     private SKBitmap? mapColorCache;
-    private SKBitmap? mapRenderCache; // Cache rendered map to avoid redrawing SVG
-    private int lastRenderWidth = 0;
-    private int lastRenderHeight = 0;
     private float scaleX = 1f;
     private float scaleY = 1f;
-    private readonly List<Explosion> explosions = new List<Explosion>();
-    private readonly List<Missile> missiles = new List<Missile>();
+    private readonly List<Explosion> explosions = new();
+    private readonly List<Missile> missiles = new();
     
     // Cached paint objects for performance
-    private readonly SKPaint missilePaint = new SKPaint
+    private readonly SKPaint missilePaint = new()
     {
         IsAntialias = true,
         StrokeWidth = 2,
         Style = SKPaintStyle.Stroke
     };
     
-    private readonly SKPaint explosionPaint = new SKPaint
+    private readonly SKPaint explosionPaint = new()
     {
         IsAntialias = true,
         Style = SKPaintStyle.Fill
     };
     
-    private readonly SKPaint corePaint = new SKPaint
+    private readonly SKPaint corePaint = new()
     {
         IsAntialias = true,
         Style = SKPaintStyle.Fill
     };
     
     // Cached color instances to avoid repeated allocations
-    private static readonly SKColor WesternMissileColor = new SKColor(100, 150, 255);
-    private static readonly SKColor SovietMissileColor = new SKColor(255, 100, 100);
-    private static readonly SKColor WesternExplosionBase = new SKColor(100, 150, 255);
-    private static readonly SKColor SovietExplosionBase = new SKColor(255, 100, 100);
-    private static readonly SKColor ExplosionCore = new SKColor(255, 255, 255);
+    private static readonly SKColor WesternMissileColor = new(100, 150, 255);
+    private static readonly SKColor SovietMissileColor = new(255, 100, 100);
+    private static readonly SKColor WesternExplosionBase = new(100, 150, 255);
+    private static readonly SKColor SovietExplosionBase = new(255, 100, 100);
+    private static readonly SKColor ExplosionCore = new(255, 255, 255);
 
-    // NATO countries (blue)
-    private static readonly HashSet<string> NATOCountries = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
-    {
-        "US", "USA", "United States", "Canada", "CA",
-        "UK", "United Kingdom", "GB", "France", "FR", "Germany", "DE", "Italy", "IT",
-        "Spain", "ES", "Portugal", "PT", "Netherlands", "NL", "Belgium", "BE",
-        "Denmark", "DK", "Norway", "NO", "Iceland", "IS", "Luxembourg", "LU",
-        "Greece", "GR", "Turkey", "TR"
-    };
-
-    // Warsaw Pact countries (red)
-    private static readonly HashSet<string> WarsawPactCountries = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
-    {
-        "Soviet Union", "USSR", "Russia", "RU",
-        "Poland", "PL", "East Germany", "DD", "Czechoslovakia", "CS", "CZ",
-        "Hungary", "HU", "Romania", "RO", "Bulgaria", "BG",
-        "Albania", "AL", "Mongolia", "MN", "Cuba", "CU", "Vietnam", "VN"
-    };
 
     private enum Alliance { None, Western, Soviet }
 
@@ -157,7 +136,7 @@ public class ColdWarMode : IVisualizerMode
         {
             float x = (float)random.NextDouble() * width;
             float y = (float)random.NextDouble() * height;
-            SKPoint point = new SKPoint(x, y);
+            SKPoint point = new(x, y);
 
             if (GetAllianceAtPoint(point, width, height) == alliance)
                 return point;
@@ -199,7 +178,7 @@ public class ColdWarMode : IVisualizerMode
             // Pick random point
             float x = (float)random.NextDouble() * width;
             float y = (float)random.NextDouble() * height;
-            SKPoint point = new SKPoint(x, y);
+            SKPoint point = new(x, y);
 
             Alliance alliance = GetAllianceAtPoint(point, width, height);
             if (alliance == Alliance.None)
@@ -227,7 +206,7 @@ public class ColdWarMode : IVisualizerMode
                 SKPoint target = GetRandomPointInAlliance(targetAlliance, width, height);
 
                 // Create arc control point
-                SKPoint mid = new SKPoint((point.X + target.X) / 2, Math.Min(point.Y, target.Y) - 100);
+                SKPoint mid = new((point.X + target.X) / 2, Math.Min(point.Y, target.Y) - 100);
 
                 missiles.Add(new Missile
                 {

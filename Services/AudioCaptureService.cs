@@ -14,7 +14,7 @@ public class AudioCaptureService : IDisposable
     private readonly int spectrumResolution;
     private readonly WasapiLoopbackCapture capture;
     private readonly Thread captureThread;
-    private readonly object spectrumLock = new object();
+    private readonly object spectrumLock = new();
     private readonly float[] leftSpectrum;
     private readonly float[] rightSpectrum;
     private volatile bool running = true;

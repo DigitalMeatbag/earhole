@@ -37,15 +37,11 @@ public class TwoCirclesMode : IVisualizerMode
     private SKCanvas? trailCanvas;
     private int lastWidth = 0;
     private int lastHeight = 0;
-    private const float TrailFadeRate = 0.88f; // Multiply alpha by this each frame (faster fade to prevent ghosting)
-    private const byte AlphaCutoff = 10; // Clear pixels below this alpha threshold
-    private int framesSinceFade = 0;
-    private const int FadeInterval = 1; // Fade every N frames (1 = every frame, 2 = every other frame)
-    
+
     // Beat compression effect
     private const float CompressionAmount = 0.7f; // Compress to 70% of normal size
     private const float CompressionSpeed = 0.15f; // How quickly to return to normal
-    private readonly List<CompressionWave> waves = new List<CompressionWave>();
+    private readonly List<CompressionWave> waves = new();
     private const float WaveSpeed = 3f; // Pixels per frame
     private const float WaveMaxAge = 60f; // Frames before wave expires
 
@@ -65,20 +61,20 @@ public class TwoCirclesMode : IVisualizerMode
     private static readonly SKColor NeutralColor = SKColors.White;
     
     // Cached paint objects for performance
-    private readonly SKPaint clearPaint = new SKPaint
+    private readonly SKPaint clearPaint = new()
     {
         Color = SKColors.Transparent,
         BlendMode = SKBlendMode.Src,
         IsAntialias = true
     };
     
-    private readonly SKPaint fadePaint = new SKPaint
+    private readonly SKPaint fadePaint = new()
     {
         Color = SKColors.White.WithAlpha((byte)(255 * 0.88f)),
         BlendMode = SKBlendMode.DstIn
     };
     
-    private readonly SKPaint wavePaint = new SKPaint
+    private readonly SKPaint wavePaint = new()
     {
         IsAntialias = true,
         Style = SKPaintStyle.Stroke,
@@ -86,8 +82,8 @@ public class TwoCirclesMode : IVisualizerMode
         BlendMode = SKBlendMode.Plus
     };
     
-    private readonly SKPath segmentPath = new SKPath();
-    private readonly SKPaint segmentPaint = new SKPaint
+    private readonly SKPath segmentPath = new();
+    private readonly SKPaint segmentPaint = new()
     {
         IsAntialias = false, // Disabled for performance - segments overlap anyway with Plus blend
         Style = SKPaintStyle.Fill,

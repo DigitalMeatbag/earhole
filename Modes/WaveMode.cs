@@ -17,31 +17,31 @@ public class WaveMode : IVisualizerMode
         public float Alpha => Math.Max(0, Lifetime / MaxLifetime);
     }
 
-    private readonly List<BeatParticle> particles = new List<BeatParticle>();
-    private readonly Random random = new Random();
+    private readonly List<BeatParticle> particles = new();
+    private readonly Random random = new();
     
     // Cached paint objects
-    private readonly SKPaint glowPaint = new SKPaint
+    private readonly SKPaint glowPaint = new()
     {
         IsAntialias = true,
         Style = SKPaintStyle.Fill
     };
     
-    private readonly SKPaint particlePaint = new SKPaint
+    private readonly SKPaint particlePaint = new()
     {
         IsAntialias = true,
         Style = SKPaintStyle.Fill
     };
     
-    private readonly SKPaint wavePaint = new SKPaint
+    private readonly SKPaint wavePaint = new()
     {
         StrokeWidth = 2f,
         IsAntialias = true,
         Style = SKPaintStyle.Stroke
     };
     
-    private readonly SKPath rightPath = new SKPath();
-    private readonly SKPath leftPath = new SKPath();
+    private readonly SKPath rightPath = new();
+    private readonly SKPath leftPath = new();
 
     public string Name => "the wave";
     public string Emoji => "🌊";
