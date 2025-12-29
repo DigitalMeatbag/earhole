@@ -15,6 +15,7 @@ public class TwoCirclesMode : IVisualizerMode
         public float StartRadius { get; set; }
         public float Age { get; set; }
         public float MaxAge { get; set; }
+        public SKColor Color { get; set; }
     }
 
     private float[] previousRadiiLeft = Array.Empty<float>();
@@ -99,6 +100,14 @@ public class TwoCirclesMode : IVisualizerMode
             // Compress circles
             currentBaseRadius = targetBaseRadius * CompressionAmount;
             
+            // Calculate intensity-weighted average color for left circle
+            SKColor leftWaveColor = CalculateIntensityWeightedColor(
+                ref smoothedVelocitiesLeft, LeftOutwardColor, LeftInwardColor);
+            
+            // Calculate intensity-weighted average color for right circle
+            SKColor rightWaveColor = CalculateIntensityWeightedColor(
+                ref smoothedVelocitiesRight, RightOutwardColor, RightInwardColor);
+            
             // Spawn compression waves at both circle centers
             waves.Add(new CompressionWave
             {
@@ -107,7 +116,8 @@ public class TwoCirclesMode : IVisualizerMode
                 CurrentRadius = currentBaseRadius,
                 StartRadius = currentBaseRadius,
                 Age = 0,
-                MaxAge = WaveMaxAge
+                MaxAge = WaveMaxAge,
+                Color = leftWaveColor
             });
             
             waves.Add(new CompressionWave
@@ -117,7 +127,8 @@ public class TwoCirclesMode : IVisualizerMode
                 CurrentRadius = currentBaseRadius,
                 StartRadius = currentBaseRadius,
                 Age = 0,
-                MaxAge = WaveMaxAge
+                MaxAge = WaveMaxAge,
+                Color = rightWaveColor
             });
         }
         
@@ -205,10 +216,10 @@ public class TwoCirclesMode : IVisualizerMode
             float distanceProgress = 1f - (wave.CurrentRadius / wave.StartRadius);
             float alpha = (1f - ageProgress) * (1f - distanceProgress); // Fade as it ages and approaches center
             
-            // Draw the compression wave as a white ring
+            // Draw the compression wave with the spectrum's average color at beat time
             using var wavePaint = new SKPaint
             {
-                Color = SKColors.White.WithAlpha((byte)(alpha * 200)),
+                Color = wave.Color.WithAlpha((byte)(alpha * 200)),
                 IsAntialias = true,
                 Style = SKPaintStyle.Stroke,
                 StrokeWidth = 3f,
@@ -230,6 +241,56 @@ public class TwoCirclesMode : IVisualizerMode
             (byte)(from.Green + (to.Green - from.Green) * t),
             (byte)(from.Blue + (to.Blue - from.Blue) * t)
         );
+    }
+
+    private static SKColor CalculateIntensityWeightedColor(ref float[] smoothedVelocities, 
+                                                            SKColor outwardColor, SKColor inwardColor)
+    {
+        float totalWeight = 0f;
+        float totalRed = 0f;
+        float totalGreen = 0f;
+        float totalBlue = 0f;
+        
+        for (int i = 0; i < smoothedVelocities.Length; i++)
+        {
+            float velocity = smoothedVelocities[i];
+            float absVelocity = Math.Abs(velocity);
+            
+            // Weight by absolute velocity (intensity)
+            if (absVelocity > 0.05f)
+            {
+                SKColor segmentColor;
+                if (velocity > 0)
+                {
+                    // Outward - interpolate from white to outward color
+                    float normalizedVel = Math.Clamp(velocity * 2f, 0f, 1f);
+                    segmentColor = InterpolateColor(NeutralColor, outwardColor, normalizedVel);
+                }
+                else
+                {
+                    // Inward - interpolate from white to inward color
+                    float normalizedVel = Math.Clamp(-velocity * 2f, 0f, 1f);
+                    segmentColor = InterpolateColor(NeutralColor, inwardColor, normalizedVel);
+                }
+                
+                totalWeight += absVelocity;
+                totalRed += segmentColor.Red * absVelocity;
+                totalGreen += segmentColor.Green * absVelocity;
+                totalBlue += segmentColor.Blue * absVelocity;
+            }
+        }
+        
+        // Return weighted average, or white if no significant movement
+        if (totalWeight > 0f)
+        {
+            return new SKColor(
+                (byte)(totalRed / totalWeight),
+                (byte)(totalGreen / totalWeight),
+                (byte)(totalBlue / totalWeight)
+            );
+        }
+        
+        return NeutralColor;
     }
 
     private void FadeTrailBitmap()
