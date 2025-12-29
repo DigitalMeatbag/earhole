@@ -25,7 +25,9 @@ public class SpectrumBarsMode : IVisualizerMode
     private float[] capYs = Array.Empty<float>(); // Y position of cap (pixels from top)
     private float[] capAlphas = Array.Empty<float>(); // alpha (0-255)
     private int[] capHolds = Array.Empty<int>(); // frames to hold full opacity before falling
+    private float[] capVels = Array.Empty<float>(); // vertical velocity (pixels/frame)
     private const float CapFallSpeed = 1.5f; // pixels per frame when falling
+    private const float CapGravity = 0.25f; // acceleration (pixels per frame^2)
     private const float CapFadePerFrame = 4f; // alpha decrease per frame
     private const int CapHoldFrames = 1; // number of frames to hold at full opacity
     private const float CapThickness = 4f; // visual thickness of the cap in pixels
@@ -60,11 +62,13 @@ public class SpectrumBarsMode : IVisualizerMode
             capYs = new float[length];
             capAlphas = new float[length];
             capHolds = new int[length];
+            capVels = new float[length];
             for (int i = 0; i < length; i++)
             {
                 capYs[i] = height; // start at bottom (off-screen)
                 capAlphas[i] = 0f;
                 capHolds[i] = 0;
+                capVels[i] = 0f;
             }
         }
 
@@ -91,6 +95,7 @@ public class SpectrumBarsMode : IVisualizerMode
                 capYs[i] = barTopY;
                 capAlphas[i] = 255f;
                 capHolds[i] = CapHoldFrames;
+                capVels[i] = 0f; // reset velocity when re-attached to bar
             }
             else
             {
@@ -101,9 +106,16 @@ public class SpectrumBarsMode : IVisualizerMode
                 }
                 else
                 {
-                    // Start falling and fading
-                    capYs[i] += CapFallSpeed;
-                    capAlphas[i] = Math.Max(0f, capAlphas[i] - CapFadePerFrame);
+                    // Apply gravity to velocity, then move cap by velocity
+                    capVels[i] += CapGravity;
+                    // Ensure a minimum starting fall speed for responsiveness
+                    if (capVels[i] < CapFallSpeed) capVels[i] = Math.Max(capVels[i], CapFallSpeed * 0.25f);
+                    capYs[i] += capVels[i];
+
+                    // Fade faster as velocity increases
+                    float fadeFactor = 1f + (capVels[i] * 0.12f);
+                    capAlphas[i] = Math.Max(0f, capAlphas[i] - (CapFadePerFrame * fadeFactor));
+
                     // Clamp to bottom
                     if (capYs[i] > height) capYs[i] = height;
                 }
