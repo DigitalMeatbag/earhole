@@ -7,6 +7,16 @@ namespace earhole.Modes;
 /// </summary>
 public class TwoCirclesMode : IVisualizerMode
 {
+    private class CompressionWave
+    {
+        public float CenterX { get; set; }
+        public float CenterY { get; set; }
+        public float CurrentRadius { get; set; }
+        public float StartRadius { get; set; }
+        public float Age { get; set; }
+        public float MaxAge { get; set; }
+    }
+
     private float[] previousRadiiLeft = Array.Empty<float>();
     private float[] currentRadiiLeft = Array.Empty<float>();
     private float[] smoothedVelocitiesLeft = Array.Empty<float>();
@@ -16,8 +26,17 @@ public class TwoCirclesMode : IVisualizerMode
     private float[] smoothedVelocitiesRight = Array.Empty<float>();
     
     private float baseRadius = 0;
+    private float targetBaseRadius = 0; // Target for smooth compression/expansion
+    private float currentBaseRadius = 0; // Current animated base radius
     private const float MaxGrowth = 150f; // Maximum distance spectrum can grow outward
     private const float VelocitySmoothing = 0.85f; // Higher = more smoothing
+    
+    // Beat compression effect
+    private const float CompressionAmount = 0.7f; // Compress to 70% of normal size
+    private const float CompressionSpeed = 0.15f; // How quickly to return to normal
+    private readonly List<CompressionWave> waves = new List<CompressionWave>();
+    private const float WaveSpeed = 3f; // Pixels per frame
+    private const float WaveMaxAge = 60f; // Frames before wave expires
 
     // Color cycling state
     private float hueOffset = 0f;
@@ -47,13 +66,44 @@ public class TwoCirclesMode : IVisualizerMode
         RightInwardColor = SKColor.FromHsv((hueOffset + 270) % 360f, 100, 100);
 
         // Calculate base radius - each circle takes up about 1/4 of the smaller dimension
-        baseRadius = Math.Min(width, height) * 0.25f;
+        targetBaseRadius = Math.Min(width, height) * 0.25f;
         
         // Position circles horizontally adjacent
-        // Left circle at 1/4 of width, right circle at 3/4 of width
         float leftCenterX = width * 0.25f;
         float rightCenterX = width * 0.75f;
         float centerY = height / 2f;
+        
+        // Handle beat compression
+        if (isBeat)
+        {
+            // Compress circles
+            currentBaseRadius = targetBaseRadius * CompressionAmount;
+            
+            // Spawn compression waves at both circle centers
+            waves.Add(new CompressionWave
+            {
+                CenterX = leftCenterX,
+                CenterY = centerY,
+                CurrentRadius = currentBaseRadius,
+                StartRadius = currentBaseRadius,
+                Age = 0,
+                MaxAge = WaveMaxAge
+            });
+            
+            waves.Add(new CompressionWave
+            {
+                CenterX = rightCenterX,
+                CenterY = centerY,
+                CurrentRadius = currentBaseRadius,
+                StartRadius = currentBaseRadius,
+                Age = 0,
+                MaxAge = WaveMaxAge
+            });
+        }
+        
+        // Smoothly return to normal size
+        currentBaseRadius += (targetBaseRadius - currentBaseRadius) * CompressionSpeed;
+        baseRadius = currentBaseRadius;
 
         // Initialize or resize radius tracking arrays
         if (previousRadiiLeft.Length != leftSpectrum.Length)
@@ -81,6 +131,40 @@ public class TwoCirclesMode : IVisualizerMode
         // Update radii for both circles
         UpdateRadii(leftSpectrum, ref currentRadiiLeft);
         UpdateRadii(rightSpectrum, ref currentRadiiRight);
+
+        // Update and render compression waves
+        for (int i = waves.Count - 1; i >= 0; i--)
+        {
+            var wave = waves[i];
+            wave.Age++;
+            
+            // Move wave inward toward center
+            wave.CurrentRadius -= WaveSpeed;
+            
+            // Remove wave if it's expired or reached the center
+            if (wave.Age >= wave.MaxAge || wave.CurrentRadius <= 0)
+            {
+                waves.RemoveAt(i);
+                continue;
+            }
+            
+            // Calculate alpha based on age and distance
+            float ageProgress = wave.Age / wave.MaxAge;
+            float distanceProgress = 1f - (wave.CurrentRadius / wave.StartRadius);
+            float alpha = (1f - ageProgress) * (1f - distanceProgress); // Fade as it ages and approaches center
+            
+            // Draw the compression wave as a white ring
+            using var wavePaint = new SKPaint
+            {
+                Color = SKColors.White.WithAlpha((byte)(alpha * 200)),
+                IsAntialias = true,
+                Style = SKPaintStyle.Stroke,
+                StrokeWidth = 3f,
+                BlendMode = SKBlendMode.Plus
+            };
+            
+            canvas.DrawCircle(wave.CenterX, wave.CenterY, wave.CurrentRadius, wavePaint);
+        }
 
         // Render both circles with interleaved segments for better blending
         RenderInterleavedCircles(canvas, leftCenterX, rightCenterX, centerY, 
