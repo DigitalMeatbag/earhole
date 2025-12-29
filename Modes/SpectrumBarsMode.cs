@@ -20,6 +20,15 @@ public class SpectrumBarsMode : IVisualizerMode
     private const int ColorUpdateInterval = 2; // Update colors every N frames
     private const int BinCount = 7; // number of discrete height bins
     private SKColor[] colorMap = new SKColor[BinCount];
+    
+    // White-cap (peak) state per bar
+    private float[] capYs = Array.Empty<float>(); // Y position of cap (pixels from top)
+    private float[] capAlphas = Array.Empty<float>(); // alpha (0-255)
+    private int[] capHolds = Array.Empty<int>(); // frames to hold full opacity before falling
+    private const float CapFallSpeed = 1.5f; // pixels per frame when falling
+    private const float CapFadePerFrame = 4f; // alpha decrease per frame
+    private const int CapHoldFrames = 1; // number of frames to hold at full opacity
+    private const float CapThickness = 4f; // visual thickness of the cap in pixels
 
     public string Name => "spectrum bars";
     public string Emoji => "📊";
@@ -45,18 +54,67 @@ public class SpectrumBarsMode : IVisualizerMode
             }
         }
 
+        // Ensure cap arrays match spectrum length
+        if (capYs.Length != length)
+        {
+            capYs = new float[length];
+            capAlphas = new float[length];
+            capHolds = new int[length];
+            for (int i = 0; i < length; i++)
+            {
+                capYs[i] = height; // start at bottom (off-screen)
+                capAlphas[i] = 0f;
+                capHolds[i] = 0;
+            }
+        }
+
         for (int i = 0; i < length; i++)
         {
             float mixedValue = (leftSpectrum[i] + rightSpectrum[i]) / 2f;
             float barHeight = (float)Math.Log(1 + mixedValue) * (height / 6f);
             float x = i * barWidth;
             SKColor baseColor = GetColorForHeight(barHeight, height);
-            
+
             // On beat, blend color 50% towards white for pulse effect
             SKColor color = isBeat ? BlendWithWhite(baseColor, 0.5f) : baseColor;
-            
+
+            // Draw the bar
             paint.Color = color;
             canvas.DrawRect(x, height - barHeight, barWidth, barHeight, paint);
+
+            // --- White-cap (peak) handling ---
+            float barTopY = height - barHeight;
+
+            // If the bar has risen into or above the cap, snap cap to bar top and set full alpha
+            if (barTopY <= capYs[i])
+            {
+                capYs[i] = barTopY;
+                capAlphas[i] = 255f;
+                capHolds[i] = CapHoldFrames;
+            }
+            else
+            {
+                // If we're still in the hold period, just decrement the counter
+                if (capHolds[i] > 0)
+                {
+                    capHolds[i]--;
+                }
+                else
+                {
+                    // Start falling and fading
+                    capYs[i] += CapFallSpeed;
+                    capAlphas[i] = Math.Max(0f, capAlphas[i] - CapFadePerFrame);
+                    // Clamp to bottom
+                    if (capYs[i] > height) capYs[i] = height;
+                }
+            }
+
+            // If cap still visible, draw it as a white rectangle with current alpha
+            if (capAlphas[i] > 0f && capYs[i] < height)
+            {
+                paint.Color = SKColors.White.WithAlpha((byte)Math.Clamp((int)capAlphas[i], 0, 255));
+                canvas.DrawRect(x, capYs[i] - CapThickness, barWidth, CapThickness, paint);
+            }
         }
     }
 
