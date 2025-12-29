@@ -249,6 +249,39 @@ public class MediaSessionManager : IDisposable
         }
     }
 
+    public async Task<string?> TryTogglePlayPauseAsync()
+    {
+        try
+        {
+            if (currentSession == null)
+            {
+                System.Diagnostics.Debug.WriteLine("No active media session to control");
+                return null;
+            }
+
+            var playbackInfo = currentSession.GetPlaybackInfo();
+            var isPlaying = playbackInfo.PlaybackStatus == GlobalSystemMediaTransportControlsSessionPlaybackStatus.Playing;
+            
+            if (isPlaying)
+            {
+                await currentSession.TryPauseAsync();
+                System.Diagnostics.Debug.WriteLine("Sent pause command");
+                return "pause";
+            }
+            else
+            {
+                await currentSession.TryPlayAsync();
+                System.Diagnostics.Debug.WriteLine("Sent play command");
+                return "play";
+            }
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"Failed to toggle play/pause: {ex.Message}");
+            return null;
+        }
+    }
+
     public void Dispose()
     {
         if (currentSession != null)

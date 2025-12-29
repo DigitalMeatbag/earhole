@@ -55,9 +55,22 @@ The repository includes pre-built releases that require no additional installati
 - **F** or **F11**: Toggle fullscreen mode
 - **Q** or **Esc**: Quit the application
 - **`** (backtick): Toggle mode menu to switch visualizers
+- **Space**: Pause/play currently playing media
 - **I**: Toggle between temporary (default) and persistent track info display
 - **F3**: Toggle FPS counter display
+- **0-8**: Quick switch to visualizer modes:
+  - **0**: Shuffle mode
+  - **1**: Spectrum Bars
+  - **2**: Particles
+  - **3**: Circle
+  - **4**: Two Circles
+  - **5**: Fairies
+  - **6**: Wave
+  - **7**: Cold War
+  - **8**: Dance
 - **Window Close Button**: Normal window close
+
+**Note**: Number keys work with both the top row and numpad.
 
 ## Now Playing Integration
 

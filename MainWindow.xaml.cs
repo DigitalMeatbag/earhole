@@ -229,6 +229,11 @@ public partial class MainWindow : Window
         if (ModeListBox.SelectedIndex == 0)
         {
             // User selected shuffle mode
+            if (isShuffleActive)
+            {
+                // Already in shuffle mode, select a new random mode
+                shuffleMode.SelectRandomMode();
+            }
             currentMode = shuffleMode;
             isShuffleActive = true;
             shuffleTimer.Start();
@@ -396,7 +401,7 @@ public partial class MainWindow : Window
         }
     }
 
-    private void Window_KeyDown(object sender, KeyEventArgs e)
+    private async void Window_KeyDown(object sender, KeyEventArgs e)
     {
         if (e.Key == Key.F || e.Key == Key.F11)
         {
@@ -406,6 +411,20 @@ public partial class MainWindow : Window
         else if (e.Key == Key.Q || e.Key == Key.Escape)
         {
             this.Close();
+            e.Handled = true;
+        }
+        else if (e.Key == Key.Space) // Toggle play/pause
+        {
+            if (mediaSessionManager != null)
+            {
+                var result = await mediaSessionManager.TryTogglePlayPauseAsync();
+                if (result != null)
+                {
+                    StatusText.Text = $"{result}";
+                    StatusText.Opacity = 1;
+                    fadeStoryboard.Begin();
+                }
+            }
             e.Handled = true;
         }
         else if (e.Key == Key.OemTilde) // Backtick key
@@ -476,6 +495,110 @@ public partial class MainWindow : Window
                 StatusText.Opacity = 1;
                 fadeStoryboard.Begin();
             }
+            e.Handled = true;
+        }
+        else if (e.Key == Key.D0 || e.Key == Key.NumPad0) // Shuffle mode
+        {
+            if (isShuffleActive)
+            {
+                // Already in shuffle mode, select a new random mode
+                shuffleMode.SelectRandomMode();
+            }
+            currentMode = shuffleMode;
+            isShuffleActive = true;
+            shuffleTimer.Start();
+            ModeListBox.SelectedIndex = 0;
+            StatusText.Text = $"shuffle: {shuffleMode.CurrentMode.Name}";
+            StatusText.Opacity = 1;
+            fadeStoryboard.Begin();
+            e.Handled = true;
+        }
+        else if (e.Key == Key.D1 || e.Key == Key.NumPad1) // Spectrum Bars
+        {
+            currentMode = availableModes[0]; // SpectrumBarsMode
+            isShuffleActive = false;
+            shuffleTimer.Stop();
+            ModeListBox.SelectedIndex = 1;
+            StatusText.Text = currentMode.Name;
+            StatusText.Opacity = 1;
+            fadeStoryboard.Begin();
+            e.Handled = true;
+        }
+        else if (e.Key == Key.D2 || e.Key == Key.NumPad2) // Particle
+        {
+            currentMode = availableModes[1]; // ParticleMode
+            isShuffleActive = false;
+            shuffleTimer.Stop();
+            ModeListBox.SelectedIndex = 2;
+            StatusText.Text = currentMode.Name;
+            StatusText.Opacity = 1;
+            fadeStoryboard.Begin();
+            e.Handled = true;
+        }
+        else if (e.Key == Key.D3 || e.Key == Key.NumPad3) // Circle
+        {
+            currentMode = availableModes[2]; // CircleMode
+            isShuffleActive = false;
+            shuffleTimer.Stop();
+            ModeListBox.SelectedIndex = 3;
+            StatusText.Text = currentMode.Name;
+            StatusText.Opacity = 1;
+            fadeStoryboard.Begin();
+            e.Handled = true;
+        }
+        else if (e.Key == Key.D4 || e.Key == Key.NumPad4) // Two Circles
+        {
+            currentMode = availableModes[3]; // TwoCirclesMode
+            isShuffleActive = false;
+            shuffleTimer.Stop();
+            ModeListBox.SelectedIndex = 4;
+            StatusText.Text = currentMode.Name;
+            StatusText.Opacity = 1;
+            fadeStoryboard.Begin();
+            e.Handled = true;
+        }
+        else if (e.Key == Key.D5 || e.Key == Key.NumPad5) // Fairies
+        {
+            currentMode = availableModes[4]; // FairiesMode
+            isShuffleActive = false;
+            shuffleTimer.Stop();
+            ModeListBox.SelectedIndex = 5;
+            StatusText.Text = currentMode.Name;
+            StatusText.Opacity = 1;
+            fadeStoryboard.Begin();
+            e.Handled = true;
+        }
+        else if (e.Key == Key.D6 || e.Key == Key.NumPad6) // Wave
+        {
+            currentMode = availableModes[5]; // WaveMode
+            isShuffleActive = false;
+            shuffleTimer.Stop();
+            ModeListBox.SelectedIndex = 6;
+            StatusText.Text = currentMode.Name;
+            StatusText.Opacity = 1;
+            fadeStoryboard.Begin();
+            e.Handled = true;
+        }
+        else if (e.Key == Key.D7 || e.Key == Key.NumPad7) // Cold War
+        {
+            currentMode = availableModes[6]; // ColdWarMode
+            isShuffleActive = false;
+            shuffleTimer.Stop();
+            ModeListBox.SelectedIndex = 7;
+            StatusText.Text = currentMode.Name;
+            StatusText.Opacity = 1;
+            fadeStoryboard.Begin();
+            e.Handled = true;
+        }
+        else if (e.Key == Key.D8 || e.Key == Key.NumPad8) // Dance
+        {
+            currentMode = availableModes[7]; // DanceMode
+            isShuffleActive = false;
+            shuffleTimer.Stop();
+            ModeListBox.SelectedIndex = 8;
+            StatusText.Text = currentMode.Name;
+            StatusText.Opacity = 1;
+            fadeStoryboard.Begin();
             e.Handled = true;
         }
     }
