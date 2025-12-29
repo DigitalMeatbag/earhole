@@ -34,8 +34,6 @@ System Audio → AudioCaptureService → FFT → Spectrum Data
                                  MainWindow → Visualizer Modes
 ```
 
-*** End Patch
-
 ## Libraries Used
 
 - **NAudio**: For WASAPI loopback audio capture
