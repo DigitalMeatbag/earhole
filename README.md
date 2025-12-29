@@ -75,13 +75,13 @@ earhole automatically detects and displays track information from media players 
 ## Visualization Modes
 
 - **🔀 Shuffle** (default): Automatically cycles through all visualizer modes every 30 seconds with true randomization; never shows the same mode twice in a row. Perfect for variety during long listening sessions.
-- **📊 Spectrum Bars**: 256-bin spectrum analyzer with ROYGBIV coloring; bars scale with volume and frequency content.
+- **📊 Spectrum Bars**: 512-bin spectrum analyzer with ROYGBIV coloring; bars scale with volume and frequency content.
 	- ![Spectrum Bars](assets/earhole-spectrum-bars.png)
 - **✨ Particles**: Audio-reactive particle field launched from the bottom; color and velocity respond to frequency/intensity.
 	- ![Particles](assets/earhole-particles.png)
 - **⭕ The Circle**: Circular spectrum visualizer where frequencies ripple outward from center; segments are colored red (expanding), white (stable), or blue (contracting) based on velocity.
 	- ![The Circle](assets/earhole-the-circle.png)
-- **♾️ Two Circles**: Dual circular visualizers displaying true stereo separation with continuous color cycling. Left channel (left circle) and right channel (right circle) each use two dynamically cycling colors: one for expansion and one for contraction. The four colors (left outward, left inward, right outward, right inward) are always distinct, cycling through the full HSV spectrum at 90-degree offsets to maintain maximum separation. White indicates stable/neutral state. Beat detection triggers both circles to compress inward and spawn white compression waves that propagate toward the centers while fading out, creating a pulsing visual sync with the music's rhythm. Overlapping segments blend additively to reveal stereo imaging and phase relationships.
+- **♾️ Two Circles**: Dual circular visualizers displaying true stereo separation with continuous color cycling. Left channel (left circle) and right channel (right circle) each use two dynamically cycling colors: one for expansion and one for contraction. The four colors (left outward, left inward, right outward, right inward) are always distinct, cycling through the full HSV spectrum at 90-degree offsets to maintain maximum separation. White indicates stable/neutral state. Beat detection triggers both circles to compress inward and spawn compression waves that propagate toward the centers while fading out. Each wave's color is calculated as the intensity-weighted average of its parent circle's spectrum at the moment of the beat, creating a visual representation of which frequencies are most active. Overlapping segments blend additively to reveal stereo imaging and phase relationships.
 	- ![Two Circles](assets/earhole-two-circles.png)
 - **🧚 Fairies**: Seven ROYGBIV fairies fly organically across the screen, each tracking a dynamic frequency range; glow intensity reflects audio activity, speed and movement erraticism increase with rising intensity.
 	- ![Fairies](assets/earhole-fairies.png)
