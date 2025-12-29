@@ -19,12 +19,32 @@ public class TwoCirclesMode : IVisualizerMode
     private const float MaxGrowth = 150f; // Maximum distance spectrum can grow outward
     private const float VelocitySmoothing = 0.85f; // Higher = more smoothing
 
+    // Color cycling state
+    private float hueOffset = 0f;
+    private const float HueCycleSpeed = 0.3f; // Degrees per frame at ~60fps
+    
+    // Color configuration - dynamically updated each frame
+    private SKColor LeftOutwardColor;
+    private SKColor LeftInwardColor;
+    private SKColor RightOutwardColor;
+    private SKColor RightInwardColor;
+    
+    // Neutral color when not moving (always white)
+    private static readonly SKColor NeutralColor = SKColors.White;
+
     public string Name => "two circles";
-    public string Emoji => "⚫";
+    public string Emoji => "♾️";
 
     public void Render(SKCanvas canvas, int width, int height, float[] leftSpectrum, float[] rightSpectrum, bool isBeat)
     {
         canvas.Clear(SKColors.Black);
+
+        // Update color cycling - each color is offset by 90 degrees to keep them distinct
+        hueOffset = (hueOffset + HueCycleSpeed) % 360f;
+        LeftOutwardColor = SKColor.FromHsv(hueOffset, 100, 100);
+        LeftInwardColor = SKColor.FromHsv((hueOffset + 90) % 360f, 100, 100);
+        RightOutwardColor = SKColor.FromHsv((hueOffset + 180) % 360f, 100, 100);
+        RightInwardColor = SKColor.FromHsv((hueOffset + 270) % 360f, 100, 100);
 
         // Calculate base radius - each circle takes up about 1/4 of the smaller dimension
         baseRadius = Math.Min(width, height) * 0.25f;
@@ -124,37 +144,31 @@ public class TwoCirclesMode : IVisualizerMode
         SKColor color;
         if (normalizedVelocity > 0.05f)
         {
-            // Moving outward
+            // Moving outward - interpolate from white to target color
             byte component = (byte)(255 * (1f - normalizedVelocity));
-            if (isLeftCircle)
-            {
-                // Left circle: interpolate from white to red
-                color = new SKColor(255, component, component);
-            }
-            else
-            {
-                // Right circle: interpolate from white to green
-                color = new SKColor(component, 255, component);
-            }
+            SKColor targetColor = isLeftCircle ? LeftOutwardColor : RightOutwardColor;
+            
+            color = new SKColor(
+                (byte)(NeutralColor.Red + (targetColor.Red - NeutralColor.Red) * normalizedVelocity),
+                (byte)(NeutralColor.Green + (targetColor.Green - NeutralColor.Green) * normalizedVelocity),
+                (byte)(NeutralColor.Blue + (targetColor.Blue - NeutralColor.Blue) * normalizedVelocity)
+            );
         }
         else if (normalizedVelocity < -0.05f)
         {
-            // Moving inward
-            byte component = (byte)(255 * (1f + normalizedVelocity));
-            if (isLeftCircle)
-            {
-                // Left circle: interpolate from white to blue
-                color = new SKColor(component, component, 255);
-            }
-            else
-            {
-                // Right circle: interpolate from white to orange
-                color = new SKColor(255, (byte)(component * 0.65f), component);
-            }
+            // Moving inward - interpolate from white to target color
+            float absVelocity = -normalizedVelocity;
+            SKColor targetColor = isLeftCircle ? LeftInwardColor : RightInwardColor;
+            
+            color = new SKColor(
+                (byte)(NeutralColor.Red + (targetColor.Red - NeutralColor.Red) * absVelocity),
+                (byte)(NeutralColor.Green + (targetColor.Green - NeutralColor.Green) * absVelocity),
+                (byte)(NeutralColor.Blue + (targetColor.Blue - NeutralColor.Blue) * absVelocity)
+            );
         }
         else
         {
-            color = SKColors.White;
+            color = NeutralColor;
         }
 
         // Calculate angles for this segment
