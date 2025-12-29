@@ -7,6 +7,7 @@ This is a C# WPF application that captures live audio data from the system loopb
 ## Features
 
 - Real-time audio spectrum visualization with selectable modes
+- **Advanced Beat Detection**: Multi-band analysis system that adapts to song tempo (60-200 BPM) with peak detection, onset flux analysis, and sub-bass frequency targeting for accurate beat tracking across all music genres
 - **Now Playing integration**: Displays current track from Spotify and other media players
 - Fullscreen mode (press F or F11)
 - Graceful exit with farewell message (press Q or Esc)
@@ -91,7 +92,7 @@ earhole automatically detects and displays track information from media players 
 
 ## Visualization Modes
 
-- **🔀 Shuffle** (default): Automatically cycles through all visualizer modes every 30 seconds with true randomization; never shows the same mode twice in a row. Perfect for variety during long listening sessions.
+- **🔀 Shuffle** (default): Automatically cycles through all visualizer modes every 30 seconds with true randomization; never shows the same mode twice in a row. Perfect for variety during long listening sessions. Press **0** again while in shuffle mode to manually skip to a new random mode.
 - **📊 Spectrum Bars**: 1024-bin spectrum analyzer with ROYGBIV coloring; bars scale with volume and frequency content.
 	- ![Spectrum Bars](assets/earhole-spectrum-bars.png)
 - **✨ Particles**: Audio-reactive particle field launched from the bottom; color and velocity respond to frequency/intensity.
@@ -109,7 +110,11 @@ earhole automatically detects and displays track information from media players 
 - **🕺 The Dance**: Concert crowd simulation with 40-80 animated stick figure dancers positioned in perspective depth. Features include: independent limb movement and physical variation per dancer (height, proportions), randomized animation timing for natural crowd motion, intensity-triggered lighter raising (5% probability, 30s cooldown, 4-6s duration with random flame colors), 12 audio-reactive lasers (6 stage lasers sweep outward, 6 ceiling lasers sweep inward with color cycling), beat-synchronized crowd jump ripple that propagates from stage to back, and subtle screen flash effects on beats. Each dancer responds to different frequency bands creating a dynamic concert atmosphere.
 	- ![The Dance](assets/earhole-the-dance.png)
 
-All modes update in real time; use the mode menu (`) to switch on the fly. When you select shuffle mode, it resumes cycling; when you select a specific mode, it stays on that mode until you change it.
+All modes update in real time. Switch modes using:
+- **Backtick (`)**: Open visual mode menu
+- **Number keys (0-8)**: Instantly switch to specific modes (see Controls section above)
+
+When you select shuffle mode, it resumes automatic cycling. When you select a specific mode, it stays on that mode until you change it.
 
 ## Building from Source
 
