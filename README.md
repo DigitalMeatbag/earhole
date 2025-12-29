@@ -14,30 +14,30 @@ This is a C# WPF application that captures live audio data from the system loopb
 - **SkiaSharp hardware-accelerated rendering** with mode-specific optimizations
 - **8 unique visualizer modes** including stereo-separated circular visualizers and animated concert crowd simulation
 
-## Features
-
 - Real-time audio spectrum visualization with selectable modes
-- **Advanced Beat Detection**: Multi-band analysis system that adapts to song tempo (60-200 BPM) with peak detection, onset flux analysis, and sub-bass frequency targeting for accurate beat tracking across all music genres
-- **Now Playing integration**: Displays current track from Spotify and other media players
-- Fullscreen mode (press F or F11)
-- Graceful exit with farewell message (press Q or Esc)
-- Startup message when audio is detected
-- Smooth animations and color transitions
-- Mode menu (press ` to toggle)
+## System Architecture
 
-## Prerequisites
 
-- Windows 10/11 (WASAPI is Windows-specific)
-  - **Minimum**: Windows 10 version 1809 (build 17763) or later for media integration
-- .NET 6.0 Runtime (for running published version) or .NET 6.0 SDK (for building from source)
-- Stereo mix/loopback audio device enabled in Windows sound settings (for capturing system audio)
-
-## Architecture
-
-earhole uses a modular, service-oriented architecture for maintainability and separation of concerns:
 
 ### Core Services
 
+- **AudioCaptureService**: Manages WASAPI loopback capture, FFT processing, and spectrum data generation
+- **BeatDetectionService**: Multi-band energy analysis with adaptive BPM tracking and peak detection
+- **ModeManagementService**: Handles visualizer mode switching and shuffle timer
+- **UINotificationService**: Manages status messages, animations, and UI text updates
+- **KeyboardCommandHandler**: Command pattern for keyboard input handling
+
+### Data Flow
+
+```
+System Audio → AudioCaptureService → FFT → Spectrum Data
+                                    ↓
+                              BeatDetectionService → Beat Events
+                                    ↓
+                                 MainWindow → Visualizer Modes
+```
+
+The main window acts as a thin coordinator, wiring up services and handling the rendering pipeline. Each service is independently testable and has a single, clear responsibility.
 - **AudioCaptureService**: Manages WASAPI loopback capture, FFT processing, and spectrum data generation
 - **BeatDetectionService**: Multi-band energy analysis with adaptive BPM tracking and peak detection
 - **ModeManagementService**: Handles visualizer mode switching and shuffle timer
@@ -71,7 +71,8 @@ The main window acts as a thin coordinator, wiring up services and handling the 
 - **Cross-app integration**: Implemented smart media session detection that prioritizes music apps and handles Spotify's inconsistent metadata with window title fallback
 - **Rendering optimization**: Achieved smooth animations through SkiaSharp GPU acceleration, SVG caching, and object pooling
 
-## Architecture
+
+## Processing Pipeline
 
 ```
 WASAPI Loopback Capture
