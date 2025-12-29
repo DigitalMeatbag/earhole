@@ -4,6 +4,16 @@ Doin' it to ya in ya earhole.
 
 This is a C# WPF application that captures live audio data from the system loopback using WASAPI and visualizes it in real-time using SkiaSharp, creating a dynamic spectrum analyzer with colorful bars.
 
+**Intended Audience**: This project is intended as both a usable audio visualizer and a demonstration of real-time audio processing, rendering, and system integration on Windows.
+
+## Tech Highlights
+
+- **Real-time FFT processing** with 1024-bin resolution at 60 FPS
+- **Adaptive beat detection** using multi-band energy analysis, peak detection, and BPM estimation (60-200 BPM)
+- **Windows Media Session API integration** for system-wide media control and track info display
+- **SkiaSharp hardware-accelerated rendering** with mode-specific optimizations
+- **8 unique visualizer modes** including stereo-separated circular visualizers and animated concert crowd simulation
+
 ## Features
 
 - Real-time audio spectrum visualization with selectable modes
@@ -28,6 +38,54 @@ This is a C# WPF application that captures live audio data from the system loopb
 - **MathNet.Numerics**: For FFT (Fast Fourier Transform) calculations
 - **SkiaSharp.Views.WPF**: For high-performance 2D graphics rendering in WPF
 - **SkiaSharp.Svg & Svg.Skia**: For SVG rendering support (used in Cold War mode)
+
+## Why This Is Interesting
+
+- **Beat detection challenge**: Solved multi-genre beat tracking with 5-part algorithm (sub-band analysis, adaptive thresholding, peak detection, onset flux, BPM-aware cooldown)
+- **Performance constraint**: Maintained 60 FPS with real-time FFT processing through optimized spectrum calculations and minimized allocations
+- **Framework limitation**: Worked around WPF's lack of trimming support by switching to framework-dependent deployment, reducing size from 150MB to 8MB
+- **Cross-app integration**: Implemented smart media session detection that prioritizes music apps and handles Spotify's inconsistent metadata with window title fallback
+- **Rendering optimization**: Achieved smooth animations through SkiaSharp GPU acceleration, SVG caching, and object pooling
+
+## Architecture
+
+```
+WASAPI Loopback Capture
+        ↓
+  Float Conversion (Stereo)
+        ↓
+  FFT (1024-bin resolution)
+        ↓
+  ┌──────────────────────┐
+  │  Beat Detection      │
+  │  - Sub-band analysis │
+  │  - Peak detection    │
+  │  - BPM estimation    │
+  └──────────────────────┘
+        ↓
+  IVisualizerMode Interface
+  (Mode-specific rendering)
+        ↓
+  SkiaSharp Canvas
+  (Hardware-accelerated)
+        ↓
+  WPF UI Layer
+  (Input handling + overlays)
+```
+
+## Performance Notes
+
+**Target: 60 FPS** - Measured using built-in FPS counter (F3 key). Consistently maintains target across all visualizer modes on modern hardware.
+
+**Key Optimizations:**
+- **Cached paint objects**: Reuse SKPaint instances across frames to eliminate allocation overhead in render loops
+- **Circular energy buffer**: 3-frame sliding window for peak detection avoids array allocations and enables O(1) lookups
+- **SVG render caching**: Cold War mode caches rendered map bitmap at current resolution, only regenerating on window resize
+- **Lazy mode initialization**: Visualizer modes defer resource allocation until first render, reducing startup time
+
+## Development Notes
+
+Implementation was accelerated using an AI coding agent; system design, architecture, performance tuning, and validation were directed and verified manually.
 
 ## How to Run
 
