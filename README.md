@@ -81,7 +81,7 @@ earhole automatically detects and displays track information from media players 
 	- ![Particles](assets/earhole-particles.png)
 - **⭕ The Circle**: Circular spectrum visualizer where frequencies ripple outward from center; segments are colored red (expanding), white (stable), or blue (contracting) based on velocity.
 	- ![The Circle](assets/earhole-the-circle.png)
-- **⚫ Two Circles**: Dual circular visualizers displaying true stereo separation; left channel (left circle) uses red/blue coloring, right channel (right circle) uses green/orange; overlapping segments blend additively to reveal stereo imaging and phase relationships.
+- **♾️ Two Circles**: Dual circular visualizers displaying true stereo separation with continuous color cycling. Left channel (left circle) and right channel (right circle) each use two dynamically cycling colors: one for expansion and one for contraction. The four colors (left outward, left inward, right outward, right inward) are always distinct, cycling through the full HSV spectrum at 90-degree offsets to maintain maximum separation. White indicates stable/neutral state. Beat detection triggers both circles to compress inward and spawn white compression waves that propagate toward the centers while fading out, creating a pulsing visual sync with the music's rhythm. Overlapping segments blend additively to reveal stereo imaging and phase relationships.
 	- ![Two Circles](assets/earhole-two-circles.png)
 - **🧚 Fairies**: Seven ROYGBIV fairies fly organically across the screen, each tracking a dynamic frequency range; glow intensity reflects audio activity, speed and movement erraticism increase with rising intensity.
 	- ![Fairies](assets/earhole-fairies.png)
