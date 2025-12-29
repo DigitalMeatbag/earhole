@@ -22,8 +22,8 @@ public partial class MainWindow : Window
         return p;
     }
 
-    private float[] leftSpectrum = new float[256]; // FFT bins for left channel
-    private float[] rightSpectrum = new float[256]; // FFT bins for right channel
+    private float[] leftSpectrum = new float[512]; // FFT bins for left channel (increased for smoother visualization)
+    private float[] rightSpectrum = new float[512]; // FFT bins for right channel (increased for smoother visualization)
     private object spectrumLock = new object();
     private WasapiLoopbackCapture capture;
     private Thread captureThread;
